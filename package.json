@@ -4,7 +4,8 @@
   "description": "PJH 개인용 데스크톱 프로그램 - 오늘의 뉴스 (BBC 한국/세계)",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder"
   },
   "author": "박준현",
   "license": "UNLICENSED",
@@ -12,6 +13,28 @@
     "fast-xml-parser": "^4.5.0"
   },
   "devDependencies": {
-    "electron": "^32.0.0"
+    "electron": "^32.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.pjh.news",
+    "productName": "PJH News",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "modules/**/*",
+      "src/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
   }
 }

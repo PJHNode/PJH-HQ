@@ -163,3 +163,120 @@ html, body {
   color: var(--sub);
   font-size: 12.5px;
 }
+
+/* 날씨 */
+.weather-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 20px;
+  max-width: 320px;
+  margin-bottom: 16px;
+}
+.weather-loc {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--sub);
+  margin-bottom: 8px;
+}
+.weather-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.weather-emoji { font-size: 32px; }
+.weather-temp { font-size: 32px; font-weight: 700; }
+.weather-desc { color: var(--text); font-size: 13px; margin-top: 6px; }
+.weather-sub { color: var(--sub); font-size: 11.5px; margin-top: 4px; }
+
+.weather-search {
+  display: flex;
+  gap: 8px;
+  max-width: 480px;
+  margin-bottom: 10px;
+}
+.weather-search input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 12.5px;
+  font-family: var(--font-sans);
+}
+.weather-search input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.weather-search button {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.weather-search button:hover { border-color: var(--accent); color: var(--accent); }
+
+.weather-result-list {
+  list-style: none;
+  max-width: 480px;
+}
+.weather-result-list li {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-top: none;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.weather-result-list li:first-child { border-top: 1px solid var(--border); }
+.weather-result-list li:hover { background: var(--surface-2); color: var(--accent); }
+
+/* 할일 메모 */
+.memo-input-row {
+  display: flex;
+  gap: 8px;
+  max-width: 480px;
+  margin-bottom: 16px;
+}
+.memo-input-row input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 10px;
+  font-size: 12.5px;
+  font-family: var(--font-sans);
+}
+.memo-input-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.memo-input-row button {
+  background: var(--accent);
+  border: none;
+  color: var(--accent-fg);
+  padding: 8px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.memo-input-row button:hover { opacity: 0.9; }
+
+.memo-list {
+  list-style: none;
+  max-width: 480px;
+}
+.memo-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.memo-item .memo-text { flex: 1; font-size: 13px; }
+.memo-item.done .memo-text { color: var(--muted); text-decoration: line-through; }
+.memo-check { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+.memo-delete {
+  background: none;
+  border: none;
+  color: var(--sub);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+}
+.memo-delete:hover { color: #ff6b6b; }
