@@ -48,7 +48,11 @@ ipcMain.handle('weather:detectLocation', () => weather.detectLocation());
 ipcMain.handle('weather:search', (_event, query) => weather.searchLocation(query));
 ipcMain.handle('weather:get', (_event, { latitude, longitude }) => weather.getWeather(latitude, longitude));
 
-ipcMain.handle('memo:list', () => memoStore.listMemos());
-ipcMain.handle('memo:add', (_event, text) => memoStore.addMemo(text));
-ipcMain.handle('memo:toggle', (_event, id) => memoStore.toggleMemo(id));
-ipcMain.handle('memo:delete', (_event, id) => memoStore.deleteMemo(id));
+ipcMain.handle('memo:list', () => memoStore.listBoard());
+ipcMain.handle('memo:add', (_event, { text, x, y }) => memoStore.addNote(text, x, y));
+ipcMain.handle('memo:updateText', (_event, { id, text }) => memoStore.updateNoteText(id, text));
+ipcMain.handle('memo:updatePosition', (_event, { id, x, y }) => memoStore.updateNotePosition(id, x, y));
+ipcMain.handle('memo:toggle', (_event, id) => memoStore.toggleNote(id));
+ipcMain.handle('memo:delete', (_event, id) => memoStore.deleteNote(id));
+ipcMain.handle('memo:connect', (_event, { fromId, toId }) => memoStore.addConnection(fromId, toId));
+ipcMain.handle('memo:disconnect', (_event, id) => memoStore.deleteConnection(id));

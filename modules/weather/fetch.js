@@ -29,13 +29,13 @@ async function searchLocation(query) {
 }
 
 async function getWeather(latitude, longitude) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&forecast_days=2&timezone=auto`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`날씨 조회 실패 (${res.status})`);
   }
   const data = await res.json();
-  return data.current;
+  return { current: data.current, hourly: data.hourly, timezone: data.timezone };
 }
 
 module.exports = { detectLocation, searchLocation, getWeather };

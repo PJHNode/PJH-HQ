@@ -10,8 +10,12 @@ contextBridge.exposeInMainWorld('api', {
   },
   memo: {
     list: () => ipcRenderer.invoke('memo:list'),
-    add: (text) => ipcRenderer.invoke('memo:add', text),
+    add: (text, x, y) => ipcRenderer.invoke('memo:add', { text, x, y }),
+    updateText: (id, text) => ipcRenderer.invoke('memo:updateText', { id, text }),
+    updatePosition: (id, x, y) => ipcRenderer.invoke('memo:updatePosition', { id, x, y }),
     toggle: (id) => ipcRenderer.invoke('memo:toggle', id),
     delete: (id) => ipcRenderer.invoke('memo:delete', id),
+    connect: (fromId, toId) => ipcRenderer.invoke('memo:connect', { fromId, toId }),
+    disconnect: (id) => ipcRenderer.invoke('memo:disconnect', id),
   },
 });

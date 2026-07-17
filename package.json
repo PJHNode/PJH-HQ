@@ -1,7 +1,7 @@
 {
-  "name": "pjh-news",
+  "name": "pjh-hq",
   "version": "1.0.0",
-  "description": "PJH 개인용 데스크톱 프로그램 - 오늘의 뉴스 (BBC 한국/세계)",
+  "description": "PJH 개인용 데스크톱 프로그램 - 오늘의 뉴스, 날씨, 할일 보드",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -17,8 +17,8 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.pjh.news",
-    "productName": "PJH News",
+    "appId": "com.pjh.hq",
+    "productName": "PJH HQ",
     "directories": {
       "output": "dist"
     },

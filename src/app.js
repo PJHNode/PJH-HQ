@@ -7,7 +7,7 @@ PJHPages.home = function renderHome(container) {
   container.innerHTML = `
     <div class="page-title">홈</div>
     <div class="page-sub">왼쪽 메뉴에서 기능을 선택하세요.</div>
-    <p class="home-hint">현재 사용 가능: 오늘의 뉴스 (BBC 한국 / 세계)</p>
+    <p class="home-hint">현재 사용 가능: 오늘의 뉴스 · 날씨 · 할일 메모</p>
   `;
 };
 

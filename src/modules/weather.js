@@ -1,6 +1,6 @@
 window.PJHPages = window.PJHPages || {};
 
-const WEATHER_LOCATION_KEY = 'pjh-news:weather:location';
+const WEATHER_LOCATION_KEY = 'pjh-hq:weather:location';
 
 const WMO_CODES = {
   0: ['맑음', '☀️'],
@@ -47,19 +47,6 @@ function clearSavedLocation() {
   localStorage.removeItem(WEATHER_LOCATION_KEY);
 }
 
-function renderWeatherCard(root, location, current) {
-  const [desc, emoji] = describeCode(current.weather_code);
-  root.innerHTML = `
-    <div class="weather-loc">${escapeHtmlLocal(location.name || '현재 위치')}</div>
-    <div class="weather-main">
-      <span class="weather-emoji">${emoji}</span>
-      <span class="weather-temp">${Math.round(current.temperature_2m)}°C</span>
-    </div>
-    <div class="weather-desc">${escapeHtmlLocal(desc)}</div>
-    <div class="weather-sub">습도 ${current.relative_humidity_2m}% · 풍속 ${current.wind_speed_10m}km/h</div>
-  `;
-}
-
 function escapeHtmlLocal(str) {
   return String(str || '')
     .replace(/&/g, '&amp;')
@@ -68,22 +55,70 @@ function escapeHtmlLocal(str) {
     .replace(/"/g, '&quot;');
 }
 
-async function loadWeatherFor(location, cardEl) {
+function todayLabel() {
+  return new Date().toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  });
+}
+
+function renderHourly(hourly, currentTime) {
+  if (!hourly || !hourly.time) return '';
+  const startIdx = Math.max(0, hourly.time.findIndex((t) => t >= currentTime));
+  const times = hourly.time.slice(startIdx, startIdx + 24);
+  const temps = hourly.temperature_2m.slice(startIdx, startIdx + 24);
+  const codes = hourly.weather_code.slice(startIdx, startIdx + 24);
+
+  const cards = times
+    .map((t, i) => {
+      const hh = t.split('T')[1].slice(0, 2);
+      const [, emoji] = describeCode(codes[i]);
+      return `
+        <div class="hour-card">
+          <div class="hour-time">${hh}시</div>
+          <div class="hour-emoji">${emoji}</div>
+          <div class="hour-temp">${Math.round(temps[i])}°</div>
+        </div>`;
+    })
+    .join('');
+  return `<div class="hourly-row">${cards}</div>`;
+}
+
+function renderWeatherCard(cardEl, hourlyEl, location, weather) {
+  const { current, hourly } = weather;
+  const [desc, emoji] = describeCode(current.weather_code);
+  cardEl.innerHTML = `
+    <div class="weather-loc">${escapeHtmlLocal(location.name || '현재 위치')}</div>
+    <div class="weather-date">${escapeHtmlLocal(todayLabel())}</div>
+    <div class="weather-main">
+      <span class="weather-emoji">${emoji}</span>
+      <span class="weather-temp">${Math.round(current.temperature_2m)}°C</span>
+    </div>
+    <div class="weather-desc">${escapeHtmlLocal(desc)}</div>
+    <div class="weather-sub">습도 ${current.relative_humidity_2m}% · 풍속 ${current.wind_speed_10m}km/h</div>
+  `;
+  hourlyEl.innerHTML = `<div class="hourly-title">시간대별 예보</div>${renderHourly(hourly, current.time)}`;
+}
+
+async function loadWeatherFor(location, cardEl, hourlyEl) {
   cardEl.innerHTML = '<div class="state-msg">날씨 불러오는 중...</div>';
+  hourlyEl.innerHTML = '';
   try {
-    const current = await window.api.weather.get(location.latitude, location.longitude);
-    renderWeatherCard(cardEl, location, current);
+    const weather = await window.api.weather.get(location.latitude, location.longitude);
+    renderWeatherCard(cardEl, hourlyEl, location, weather);
   } catch (err) {
     cardEl.innerHTML = `<div class="state-msg error">날씨를 불러오지 못했습니다: ${escapeHtmlLocal(err.message || err)}</div>`;
   }
 }
 
-async function loadAutoLocation(cardEl, locLabelEl) {
+async function loadAutoLocation(cardEl, hourlyEl, locLabelEl) {
   cardEl.innerHTML = '<div class="state-msg">현재 위치 감지 중...</div>';
   try {
     const location = await window.api.weather.detectLocation();
     locLabelEl.textContent = `현재 위치: ${location.name || '알 수 없음'}`;
-    await loadWeatherFor(location, cardEl);
+    await loadWeatherFor(location, cardEl, hourlyEl);
   } catch (err) {
     cardEl.innerHTML = `<div class="state-msg error">위치를 감지하지 못했습니다: ${escapeHtmlLocal(err.message || err)}</div>`;
   }
@@ -97,7 +132,7 @@ PJHPages.weather = function renderWeather(container) {
     <div class="weather-card" id="weather-card">
       <div class="state-msg">불러오는 중...</div>
     </div>
-
+    <div id="weather-hourly"></div>
 
     <div class="weather-search">
       <input type="text" id="weather-search-input" placeholder="지역 검색 (예: 부산, 도쿄, Paris)">
@@ -108,6 +143,7 @@ PJHPages.weather = function renderWeather(container) {
   `;
 
   const cardEl = container.querySelector('#weather-card');
+  const hourlyEl = container.querySelector('#weather-hourly');
   const locLabelEl = container.querySelector('#weather-loc-label');
   const searchInput = container.querySelector('#weather-search-input');
   const searchBtn = container.querySelector('#weather-search-btn');
@@ -117,9 +153,9 @@ PJHPages.weather = function renderWeather(container) {
   const saved = getSavedLocation();
   if (saved) {
     locLabelEl.textContent = `저장된 위치: ${saved.name}`;
-    loadWeatherFor(saved, cardEl);
+    loadWeatherFor(saved, cardEl, hourlyEl);
   } else {
-    loadAutoLocation(cardEl, locLabelEl);
+    loadAutoLocation(cardEl, hourlyEl, locLabelEl);
   }
 
   async function runSearch() {
@@ -144,7 +180,7 @@ PJHPages.weather = function renderWeather(container) {
           locLabelEl.textContent = `저장된 위치: ${loc.name}`;
           resultsEl.innerHTML = '';
           searchInput.value = '';
-          loadWeatherFor(loc, cardEl);
+          loadWeatherFor(loc, cardEl, hourlyEl);
         });
       });
     } catch (err) {
@@ -160,6 +196,6 @@ PJHPages.weather = function renderWeather(container) {
   myLocBtn.addEventListener('click', () => {
     clearSavedLocation();
     resultsEl.innerHTML = '';
-    loadAutoLocation(cardEl, locLabelEl);
+    loadAutoLocation(cardEl, hourlyEl, locLabelEl);
   });
 };
