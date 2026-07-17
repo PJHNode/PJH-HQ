@@ -212,6 +212,35 @@ html, body {
   color: var(--text);
   margin-bottom: 10px;
 }
+.weather-date-tag {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 1px 5px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.weather-date-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.weather-date-label {
+  font-size: 11.5px;
+  color: var(--sub);
+}
+.weather-date-row input[type="date"] {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: var(--font-sans);
+}
+.weather-date-row input[type="date"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .weather-main {
   display: flex;
   align-items: center;
@@ -244,10 +273,37 @@ html, body {
   padding: 8px 10px;
   text-align: center;
   min-width: 52px;
+  cursor: pointer;
 }
+.hour-card:hover { border-color: var(--accent); }
+.hour-card.active { border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
 .hour-time { font-family: var(--font-mono); font-size: 10px; color: var(--sub); }
 .hour-emoji { font-size: 18px; margin: 4px 0; }
 .hour-temp { font-size: 12px; font-weight: 700; }
+
+.hour-detail-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  padding: 12px 14px;
+  max-width: 360px;
+  margin-bottom: 16px;
+}
+.hour-detail-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.hour-detail-desc { font-size: 13px; margin-bottom: 8px; }
+.hour-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  font-size: 11.5px;
+  color: var(--sub);
+}
+.hour-detail-grid b { color: var(--text); }
 
 .weather-search {
   display: flex;

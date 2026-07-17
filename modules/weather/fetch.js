@@ -29,7 +29,8 @@ async function searchLocation(query) {
 }
 
 async function getWeather(latitude, longitude) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&forecast_days=2&timezone=auto`;
+  const hourlyVars = 'temperature_2m,weather_code,precipitation_probability,cloud_cover,relative_humidity_2m,wind_speed_10m';
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=${hourlyVars}&past_days=7&forecast_days=16&timezone=auto`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`날씨 조회 실패 (${res.status})`);
