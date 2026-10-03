@@ -5,8 +5,14 @@ const { fetchHackerNews } = require('./modules/hn/fetch');
 const weather = require('./modules/weather/fetch');
 const todo = require('./modules/todo/store');
 const state = require('./modules/state');
+const sys = require('./modules/sys/stats');
+const netInfo = require('./modules/net/info');
+const { fetchStatus } = require('./modules/status/fetch');
+const { fetchGeekNews } = require('./modules/geek/fetch');
+const { fetchKev } = require('./modules/kev/fetch');
 
-// PJH Desk: 바탕화면 오른쪽에 떠 있는 위젯. 시계 · 날씨 · 오늘 할 일 · 헤드라인(BBC 한국/세계, Hacker News).
+// PJH Desk: 바탕화면 오른쪽에 떠 있는 위젯. 시계 · 날씨 · 시스템(PC·네트워크·서비스 상태) · 오늘 할 일 ·
+// 헤드라인(BBC 한국/세계, GeekNews, Hacker News, 보안 취약점).
 // 테두리 없는 반투명 창이고 작업 표시줄에는 나오지 않는다. 트레이 아이콘으로 보이기/숨기기를 한다.
 
 const WIDTH = 380;
@@ -175,6 +181,12 @@ if (!app.requestSingleInstanceLock()) {
 
 ipcMain.handle('news:fetch', () => fetchTodayNews());
 ipcMain.handle('hn:fetch', () => fetchHackerNews());
+ipcMain.handle('geek:fetch', () => fetchGeekNews());
+ipcMain.handle('kev:fetch', () => fetchKev());
+
+ipcMain.handle('sys:sample', () => sys.sample());
+ipcMain.handle('net:info', () => netInfo.info());
+ipcMain.handle('status:fetch', () => fetchStatus());
 
 ipcMain.handle('weather:detectLocation', () => weather.detectLocation());
 ipcMain.handle('weather:search', (_e, query) => weather.searchLocation(String(query || '')));

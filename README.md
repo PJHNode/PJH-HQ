@@ -4,8 +4,13 @@
 
 - **시계:** 지금 시각과 날짜
 - **날씨:** 현재 기온, 오늘 최고/최저, 습도. 누르면 앞으로 8시간 예보가 펼쳐져요. 지역 이름을 누르면 다른 지역으로 바꿀 수 있어요.
+- **시스템:**
+  - 내 PC: CPU, 메모리, 디스크(여유 10% 아래면 노랑, 5% 아래면 빨강), 배터리(없으면 켜진 시간)
+  - 네트워크: 와이파이 이름·신호 또는 유선, 내려받기/올리기 속도, 1.1.1.1·8.8.8.8 응답 속도와 3분 그래프, 로컬 IP, 공인 IP(평소엔 가리고 누르면 보여요)
+  - 서비스: GitHub, Cloudflare, Discord, Claude, OpenAI, AWS 서울의 공식 상태 페이지를 5분마다 확인해서 문제가 있을 때만 색으로 보여줘요
 - **오늘 할 일:** 입력하고 Enter로 추가, 눌러서 완료, ×로 삭제. 끝낸 일은 다음 날 자동으로 정리돼요.
-- **헤드라인:** BBC 한국 / BBC 세계 / Hacker News 탭. 세계와 Hacker News는 한국어 번역을 같이 보여줘요. 기사를 누르면 요약과 링크가 펼쳐지고, 링크는 기본 브라우저로 열려요. 15분마다 새로 불러와요.
+- **헤드라인:** 한국(BBC) / 세계(BBC) / GeekNews / HN(Hacker News) / 보안 탭. 세계·HN·보안은 한국어 번역을 같이 보여줘요.
+  - 보안 탭은 미국 CISA가 실제 공격에 쓰이고 있다고 확인한 최신 취약점 20개예요. 랜섬웨어에 쓰인 건 빨간 표시가 붙어요. 기사를 누르면 요약과 링크가 펼쳐지고, 링크는 기본 브라우저로 열려요. 15분마다 새로 불러와요.
 
 ## 사용법
 
@@ -33,7 +38,12 @@ VS Code 안의 터미널에서 실행할 때 `ELECTRON_RUN_AS_NODE=1`이 설정�
 |---|---|
 | BBC 한국 | https://feeds.bbci.co.uk/korean/rss.xml |
 | BBC 세계 | https://feeds.bbci.co.uk/news/world/rss.xml |
+| GeekNews | https://news.hada.io/rss/news |
 | Hacker News | 공식 API(hacker-news.firebaseio.com), 실패하면 Algolia(hn.algolia.com) |
+| 보안 취약점 | CISA KEV (cisa.gov, 6시간마다) |
+| 서비스 상태 | 각 서비스 Statuspage API, AWS Health(서울 리전·전역만) |
+| 공인 IP | api.ipify.org |
+| 응답 속도 | 1.1.1.1·8.8.8.8의 443 포트 TCP 연결 시간(관리자 권한 불필요) |
 | 날씨 | Open-Meteo (위치 자동 감지: ipwho.is) |
 | 번역 | Google 번역 무료 주소. 제목을 묶어서 한 번에 보내고, 번역한 제목은 기억해 둬요. 429(요청이 너무 많음)를 받으면 30분 동안 번역을 쉬고 원문만 보여줘요. |
 
@@ -45,6 +55,11 @@ VS Code 안의 터미널에서 실행할 때 `ELECTRON_RUN_AS_NODE=1`이 설정�
 | `preload.js` | 렌더러에 열어 주는 기능 목록 |
 | `modules/news/` | BBC 피드, 번역 |
 | `modules/hn/` | Hacker News |
+| `modules/geek/` | GeekNews |
+| `modules/kev/` | 보안 취약점(CISA KEV) |
+| `modules/sys/` | 내 PC 상태(CPU·메모리·디스크·네트워크 속도) |
+| `modules/net/` | 응답 속도, IP, 와이파이/유선 |
+| `modules/status/` | 서비스 상태 |
 | `modules/weather/` | 날씨, 위치 |
 | `modules/todo/` | 오늘 할 일 저장 (`todo.json`) |
 | `modules/state.js` | 위젯 위치·항상 위 설정 (`desk-state.json`) |

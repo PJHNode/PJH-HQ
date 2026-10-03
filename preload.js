@@ -3,6 +3,13 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   getNews: () => ipcRenderer.invoke('news:fetch'),
   getHackerNews: () => ipcRenderer.invoke('hn:fetch'),
+  getGeekNews: () => ipcRenderer.invoke('geek:fetch'),
+  getKev: () => ipcRenderer.invoke('kev:fetch'),
+  sys: {
+    sample: () => ipcRenderer.invoke('sys:sample'),
+    net: () => ipcRenderer.invoke('net:info'),
+    status: () => ipcRenderer.invoke('status:fetch'),
+  },
   openExternal: (url) => ipcRenderer.send('shell:openExternal', url),
   weather: {
     detectLocation: () => ipcRenderer.invoke('weather:detectLocation'),

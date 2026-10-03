@@ -33,6 +33,13 @@
       <div id="weather-body" class="muted small">불러오는 중...</div>
     </section>
 
+    <section class="block" id="system">
+      <div class="label">시스템</div>
+      <div class="meters" id="sys-meters"></div>
+      <div class="net" id="sys-net"><div class="muted small">네트워크 확인 중...</div></div>
+      <div class="svc" id="sys-status"></div>
+    </section>
+
     <section class="block" id="todo">
       <div class="label">오늘 할 일 <span id="todo-count" class="count"></span></div>
       <ul id="todo-list" class="todo-list"></ul>
@@ -43,7 +50,9 @@
       <div class="tabs" id="tabs">
         <button class="tab" data-tab="korea">한국</button>
         <button class="tab" data-tab="world">세계</button>
-        <button class="tab" data-tab="hn">Hacker News</button>
+        <button class="tab" data-tab="geek">GeekNews</button>
+        <button class="tab" data-tab="hn" title="Hacker News">HN</button>
+        <button class="tab" data-tab="kev" title="실제 공격에 쓰이는 최신 취약점 (CISA KEV)">보안</button>
       </div>
       <div id="news-list" class="news-list"><div class="muted small">불러오는 중...</div></div>
     </section>

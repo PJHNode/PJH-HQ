@@ -1,10 +1,13 @@
-// PJH Desk 위젯 화면. 시계 · 날씨 · 오늘 할 일 · 헤드라인(BBC 한국/세계, Hacker News).
+// PJH Desk 위젯 화면. 시계 · 날씨 · 시스템 · 오늘 할 일 · 헤드라인(BBC 한국/세계, GeekNews, Hacker News, 보안).
 (function () {
   const api = window.api;
   const $ = (id) => document.getElementById(id);
 
   const NEWS_REFRESH_MS = 15 * 60 * 1000;
   const WEATHER_REFRESH_MS = 30 * 60 * 1000;
+  const SYS_REFRESH_MS = 2000;
+  const NET_REFRESH_MS = 5000;
+  const STATUS_REFRESH_MS = 5 * 60 * 1000;
   const SHOW_FIRST = 8;
   const LOCATION_KEY = 'pjh-desk:weather:location';
   const TAB_KEY = 'pjh-desk:tab';
@@ -199,9 +202,17 @@
   // ---------- 헤드라인 ----------
 
   let tab = localStorage.getItem(TAB_KEY) || 'korea';
+  if (!['korea', 'world', 'geek', 'hn', 'kev'].includes(tab)) tab = 'korea';
   let expanded = false;
-  const feeds = { korea: null, world: null, hn: null };
-  const feedErrors = { korea: null, world: null, hn: null };
+  const feeds = { korea: null, world: null, geek: null, hn: null, kev: null };
+  const feedErrors = { korea: null, world: null, geek: null, hn: null, kev: null };
+  const TAB_RENDER = {
+    korea: (it) => bbcItem(it, false),
+    world: (it) => bbcItem(it, true),
+    geek: (it) => geekItem(it),
+    hn: (it) => hnItem(it),
+    kev: (it) => kevItem(it),
+  };
 
   function setTab(next) {
     tab = next;
@@ -257,7 +268,7 @@
       return;
     }
     const shown = expanded ? items : items.slice(0, SHOW_FIRST);
-    const html = shown.map((it) => (tab === 'hn' ? hnItem(it) : bbcItem(it, tab === 'world'))).join('');
+    const html = shown.map(TAB_RENDER[tab]).join('');
     const more = !expanded && items.length > SHOW_FIRST ? `<button class="more" id="more">${items.length - SHOW_FIRST}개 더 보기</button>` : '';
     list.innerHTML = html + more;
     if (more) $('more').addEventListener('click', () => { expanded = true; renderNews(); });
@@ -277,8 +288,19 @@
 
   document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
 
+  function settle(key, result, pick) {
+    if (result.status === 'fulfilled') {
+      feeds[key] = pick(result.value);
+      feedErrors[key] = null;
+    } else {
+      feedErrors[key] = String((result.reason && result.reason.message) || result.reason);
+    }
+  }
+
   async function loadNews() {
-    const [bbc, hn] = await Promise.allSettled([api.getNews(), api.getHackerNews()]);
+    const [bbc, hn, geek, kev] = await Promise.allSettled([api.getNews(), api.getHackerNews(), api.getGeekNews(), api.getKev()]);
+    settle('geek', geek, (v) => v);
+    settle('kev', kev, (v) => v);
     if (bbc.status === 'fulfilled') {
       feeds.korea = bbc.value.korea;
       feeds.world = bbc.value.world;
@@ -298,6 +320,201 @@
     $('updated').textContent = `업데이트 ${pad(now.getHours())}:${pad(now.getMinutes())}`;
   }
 
+  function geekItem(it) {
+    return `
+      <div class="item">
+        <div class="item-title">${esc(it.title)}</div>
+        <div class="item-meta">${esc(timeAgo(it.time))}${it.author ? ` · ${esc(it.author)}` : ''}</div>
+        <div class="item-detail">
+          ${it.summary ? esc(it.summary) : ''}
+          <div class="item-links"><span class="link" data-url="${esc(it.link)}">GeekNews에서 보기 →</span></div>
+        </div>
+      </div>`;
+  }
+
+  function kevItem(it) {
+    const name = it.nameKo || it.name;
+    const desc = it.descriptionKo || it.description;
+    return `
+      <div class="item">
+        <div class="cve">${esc(it.cve)} · ${esc(it.vendor)} ${esc(it.product)}${it.ransomware ? '<span class="badge ransom">랜섬웨어</span>' : ''}</div>
+        <div class="item-title">${esc(name)}</div>
+        <div class="item-meta">추가 ${esc(it.added)}${it.dueDate ? ` · 조치 기한 ${esc(it.dueDate)}` : ''}</div>
+        <div class="item-detail">
+          ${esc(desc)}
+          ${it.nameKo ? `<div class="item-ko gap">${esc(it.name)}</div>` : ''}
+          <div class="item-links"><span class="link" data-url="${esc(it.link)}">NVD에서 보기 →</span></div>
+        </div>
+      </div>`;
+  }
+
+  // ---------- 시스템: 내 PC ----------
+
+  function fmtBytes(n, digits = 1) {
+    if (n == null || Number.isNaN(n)) return '-';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let i = 0;
+    let v = n;
+    while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+    return `${v.toFixed(i === 0 ? 0 : digits)} ${units[i]}`;
+  }
+
+  function meter(key, label, value, percent, level) {
+    const pct = Math.max(0, Math.min(100, percent || 0));
+    return `
+      <div class="meter ${level || ''}" data-meter="${key}">
+        <div class="meter-top"><span class="k">${esc(label)}</span><span class="v">${esc(value)}</span></div>
+        <div class="meter-bar"><div class="meter-fill" data-pct="${pct.toFixed(1)}"></div></div>
+      </div>`;
+  }
+
+  let battery = null;
+  if (navigator.getBattery) {
+    navigator.getBattery().then((b) => {
+      // 배터리가 없는 데스크톱은 "항상 100% 충전 중"으로 나온다. 그 경우는 숨긴다.
+      if (b.charging && b.level === 1 && b.chargingTime === 0) return;
+      battery = b;
+    }).catch(() => {});
+  }
+
+  async function loadSystem() {
+    let s;
+    try {
+      s = await api.sys.sample();
+    } catch {
+      return;
+    }
+    const cells = [];
+    cells.push(s.cpu == null
+      ? meter('cpu', 'CPU', '…', 0)
+      : meter('cpu', 'CPU', `${s.cpu}%`, s.cpu, s.cpu >= 90 ? 'bad' : s.cpu >= 70 ? 'warn' : ''));
+    const memPct = (s.mem.used / s.mem.total) * 100;
+    cells.push(meter('mem', '메모리', `${fmtBytes(s.mem.used)} / ${fmtBytes(s.mem.total, 0)}`, memPct, memPct >= 90 ? 'bad' : memPct >= 80 ? 'warn' : ''));
+    if (s.disk) {
+      const usedPct = (1 - s.disk.free / s.disk.total) * 100;
+      const freePct = 100 - usedPct;
+      cells.push(meter('disk', `디스크 ${s.disk.name}`, `${fmtBytes(s.disk.free)} 남음`, usedPct, freePct < 5 ? 'bad' : freePct < 10 ? 'warn' : ''));
+    }
+    if (battery) {
+      const lv = Math.round(battery.level * 100);
+      cells.push(meter('bat', '배터리', `${lv}%${battery.charging ? ' 충전 중' : ''}`, lv, !battery.charging && lv <= 10 ? 'bad' : !battery.charging && lv <= 20 ? 'warn' : ''));
+    } else {
+      const h = Math.floor(s.uptime / 3600);
+      const m = Math.floor((s.uptime % 3600) / 60);
+      cells.push(`<div class="meter"><div class="meter-top"><span class="k">켜진 시간</span><span class="v">${h ? `${h}시간 ` : ''}${m}분</span></div></div>`);
+    }
+    $('sys-meters').innerHTML = cells.join('');
+    // 화면 보안 정책(CSP)이 인라인 style 속성을 막아서 막대 길이는 스크립트로 지정한다.
+    document.querySelectorAll('#sys-meters .meter-fill').forEach((el) => { el.style.width = `${el.dataset.pct}%`; });
+    if (s.net) netRate = s.net;
+    renderNetRate();
+  }
+
+  // ---------- 시스템: 네트워크 ----------
+
+  let netRate = null;
+  let showPublicIp = false;
+  let lastNet = null;
+
+  function sparkline(series) {
+    const W = 110;
+    const H = 20;
+    const all = series.flat().filter((v) => v != null);
+    const max = Math.max(50, ...all);
+    const n = Math.max(2, ...series.map((s) => s.length));
+    const x = (i) => (i / (n - 1)) * (W - 2) + 1;
+    const y = (v) => H - 2 - (v / max) * (H - 4);
+    let out = '';
+    series.forEach((s, si) => {
+      // 측정 실패(null)는 선을 끊고, 1.1.1.1 쪽은 빨간 점으로 표시한다.
+      const parts = [];
+      let cur = [];
+      s.forEach((v, i) => {
+        if (v == null) {
+          if (cur.length) parts.push(cur);
+          cur = [];
+          if (si === 0) out += `<circle class="drop" cx="${x(i).toFixed(1)}" cy="${H - 3}" r="1.5"/>`;
+        } else {
+          cur.push(`${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+        }
+      });
+      if (cur.length) parts.push(cur);
+      parts.forEach((p) => { out += `<polyline class="s${si}" points="${p.length === 1 ? `${p[0]} ${p[0]}` : p.join(' ')}"/>`; });
+    });
+    return `<svg class="spark" viewBox="0 0 ${W} ${H}">${out}</svg>`;
+  }
+
+  function maskIp(ip) {
+    return String(ip).replace(/\d+/g, '•••');
+  }
+
+  function renderNetRate() {
+    const el = document.getElementById('net-rate');
+    if (el) el.textContent = netRate ? `↓ ${fmtBytes(netRate.down)}/s   ↑ ${fmtBytes(netRate.up)}/s` : '…';
+  }
+
+  function renderNet() {
+    const n = lastNet;
+    if (!n) return;
+    const link = n.link || {};
+    const linkText = link.type === 'wifi'
+      ? `와이파이 ${link.ssid || ''}${link.signal != null ? ` · 신호 ${link.signal}%` : ''}`
+      : link.type === 'wired' ? '유선 연결' : '연결 없음';
+    const vals = n.latency.map((l) => {
+      const v = l.history.length ? l.history[l.history.length - 1] : undefined;
+      const shown = v === undefined ? '…' : v == null ? '끊김' : `${v}ms`;
+      return `<span>${esc(l.label)} <b>${esc(shown)}</b></span>`;
+    }).join('');
+    const pub = n.publicIp
+      ? (showPublicIp ? `<span class="link" id="ip-toggle" title="눌러서 가리기">${esc(n.publicIp)}</span>`
+        : `<span class="ip-hidden" id="ip-toggle" title="눌러서 보기">${esc(maskIp(n.publicIp))}</span>`)
+      : '<span class="muted">-</span>';
+    $('sys-net').innerHTML = `
+      <div class="net-row"><span class="k">${esc(linkText)}</span><span class="v" id="net-rate"></span></div>
+      <div class="net-row"><div class="lat-vals">${vals}</div>${sparkline(n.latency.map((l) => l.history))}</div>
+      <div class="net-row"><span class="k">IP ${esc(n.local ? n.local.address : '-')}</span><span class="v">공인 ${pub}</span></div>`;
+    renderNetRate();
+    const t = document.getElementById('ip-toggle');
+    if (t) t.addEventListener('click', () => { showPublicIp = !showPublicIp; renderNet(); });
+  }
+
+  async function loadNet() {
+    try {
+      lastNet = await api.sys.net();
+      renderNet();
+    } catch (err) {
+      $('sys-net').innerHTML = `<div class="small error">네트워크 정보를 읽지 못했어요: ${errText(err)}</div>`;
+    }
+  }
+
+  // ---------- 시스템: 서비스 상태 ----------
+
+  async function loadStatus() {
+    let list;
+    try {
+      list = await api.sys.status();
+    } catch {
+      return;
+    }
+    const problems = list.filter((s) => s.level !== 'none' && s.level !== 'unknown');
+    const unknown = list.filter((s) => s.level === 'unknown');
+    const el = $('sys-status');
+    if (!problems.length) {
+      el.innerHTML = `<div class="svc-ok" title="${esc(list.map((s) => `${s.name}: ${s.text}`).join('\n'))}">
+        <span class="dot inline"></span>서비스 모두 정상 · ${esc(list.filter((s) => s.level === 'none').map((s) => s.name).join(' · '))}${unknown.length ? ` (${esc(unknown.map((s) => s.name).join(', '))} 확인 실패)` : ''}</div>`;
+      return;
+    }
+    el.innerHTML = problems.map((s) => `
+      <div class="svc-item ${esc(s.level)}" data-url="${esc(s.page)}" title="${esc(s.detail)}">
+        <span class="dot ${esc(s.level)}"></span><span class="svc-name">${esc(s.name)}</span><span class="svc-text">${esc(s.text)}</span>
+      </div>`).join('') + `<div class="svc-ok">나머지 ${list.length - problems.length - unknown.length}곳 정상</div>`;
+  }
+
+  $('sys-status').addEventListener('click', (e) => {
+    const item = e.target.closest('[data-url]');
+    if (item) api.openExternal(item.dataset.url);
+  });
+
   // ---------- 위쪽 버튼 ----------
 
   function showPinned(pinned) {
@@ -315,6 +532,8 @@
     loadWeather();
     loadNews();
     loadTodo();
+    loadNet();
+    loadStatus();
   }
 
   // ---------- 시작 ----------
@@ -326,6 +545,10 @@
   refreshAll();
   setInterval(loadNews, NEWS_REFRESH_MS);
   setInterval(loadWeather, WEATHER_REFRESH_MS);
+  loadSystem();
+  setInterval(loadSystem, SYS_REFRESH_MS);
+  setInterval(loadNet, NET_REFRESH_MS);
+  setInterval(loadStatus, STATUS_REFRESH_MS);
   // 자정이 지나면 어제 끝낸 일을 정리한다.
   setInterval(loadTodo, 10 * 60 * 1000);
 })();
