@@ -1,5 +1,5 @@
 const { XMLParser } = require('fast-xml-parser');
-const { translateToKorean } = require('./translate');
+const { translateMany } = require('./translate');
 
 const FEEDS = {
   korea: 'https://feeds.bbci.co.uk/korean/rss.xml',
@@ -32,7 +32,8 @@ function getBucket(ageHours) {
 
 async function fetchFeed(url) {
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'PJH-News-Desktop/1.0' },
+    headers: { 'User-Agent': 'PJH-Desk/2.0' },
+    signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) {
     throw new Error(`피드 요청 실패 (${res.status})`);
@@ -60,16 +61,15 @@ function annotateAndFilter(items) {
       return { ...item, ageHours, bucket: getBucket(ageHours) };
     })
     .filter((item) => item.bucket !== null)
-    .sort((a, b) => a.ageHours - b.ageHours);
+    .sort((a, b) => a.ageHours - b.ageHours)
+    // 피드에 같은 기사가 두 번 들어 있는 경우가 있어 제목이 같으면 최신 것 하나만 남긴다.
+    .filter((item, i, all) => all.findIndex((x) => x.title === item.title) === i);
 }
 
 async function withTranslations(items) {
   if (items.length === 0) return items;
-  const results = await Promise.allSettled(items.map((item) => translateToKorean(item.title)));
-  return items.map((item, i) => ({
-    ...item,
-    titleKo: results[i].status === 'fulfilled' ? results[i].value : '',
-  }));
+  const translated = await translateMany(items.map((item) => item.title));
+  return items.map((item, i) => ({ ...item, titleKo: translated[i] }));
 }
 
 async function fetchTodayNews() {

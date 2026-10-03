@@ -1,5 +1,5 @@
 async function detectLocation() {
-  const res = await fetch('https://ipwho.is/');
+  const res = await fetch('https://ipwho.is/', { signal: AbortSignal.timeout(10000) });
   if (!res.ok) {
     throw new Error(`위치 감지 실패 (${res.status})`);
   }
@@ -8,7 +8,8 @@ async function detectLocation() {
     throw new Error(data.message || '위치 감지 실패');
   }
   return {
-    name: [data.city, data.region].filter(Boolean).join(' '),
+    // 서울처럼 도시와 지역 이름이 같으면 한 번만 쓴다.
+    name: [...new Set([data.city, data.region].filter(Boolean))].join(' '),
     latitude: data.latitude,
     longitude: data.longitude,
   };
@@ -16,13 +17,13 @@ async function detectLocation() {
 
 async function searchLocation(query) {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=ko`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
   if (!res.ok) {
     throw new Error(`지역 검색 실패 (${res.status})`);
   }
   const data = await res.json();
   return (data.results || []).map((r) => ({
-    name: [r.name, r.admin1, r.country].filter(Boolean).join(', '),
+    name: [...new Set([r.name, r.admin1, r.country].filter(Boolean))].join(', '),
     latitude: r.latitude,
     longitude: r.longitude,
   }));
@@ -31,7 +32,7 @@ async function searchLocation(query) {
 async function getWeather(latitude, longitude) {
   const hourlyVars = 'temperature_2m,weather_code,precipitation_probability,cloud_cover,relative_humidity_2m,wind_speed_10m';
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=${hourlyVars}&past_days=7&forecast_days=16&timezone=auto`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
   if (!res.ok) {
     throw new Error(`날씨 조회 실패 (${res.status})`);
   }

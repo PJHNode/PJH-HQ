@@ -1,11 +1,11 @@
 {
-  "name": "pjh-hq",
-  "version": "1.0.0",
-  "description": "PJH 개인용 데스크톱 프로그램 - 오늘의 뉴스, 날씨, 할일 보드",
+  "name": "pjh-desk",
+  "version": "2.0.0",
+  "description": "PJH 바탕화면 위젯 - 시계, 날씨, 오늘 할 일, 헤드라인(BBC 한국/세계, Hacker News)",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder"
+    "dist": "electron-builder --win"
   },
   "author": "박준현",
   "license": "UNLICENSED",
@@ -17,8 +17,9 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.pjh.hq",
-    "productName": "PJH HQ",
+    "appId": "com.pjh.desk",
+    "productName": "PJH Desk",
+    "compression": "normal",
     "directories": {
       "output": "dist"
     },
@@ -26,15 +27,25 @@
       "main.js",
       "preload.js",
       "modules/**/*",
-      "src/**/*"
+      "src/**/*",
+      "assets/**/*"
     ],
+    "icon": "assets/icon.png",
     "win": {
-      "target": "nsis"
+      "target": ["portable", "nsis"]
+    },
+    "portable": {
+      "artifactName": "PJH-Desk.exe"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "artifactName": "PJH-Desk-Setup.exe"
+    },
+    "linux": {
+      "target": ["AppImage", "rpm"],
+      "category": "Utility"
     }
   }
 }

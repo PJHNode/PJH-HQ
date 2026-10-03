@@ -2,24 +2,54 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>PJH HQ</title>
-<link rel="stylesheet" href="styles.css">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+<title>PJH Desk</title>
+<link rel="stylesheet" href="desk.css">
 </head>
 <body>
-  <div id="app">
-    <nav class="sidebar">
-      <div class="brand">PJH HQ</div>
-      <div class="nav-item active" data-page="home"><span class="icon">&#8962;</span><span>홈</span></div>
-      <div class="nav-item" data-page="news"><span class="icon">&#128240;</span><span>오늘의 뉴스</span></div>
-      <div class="nav-item" data-page="weather"><span class="icon">&#9728;</span><span>날씨</span></div>
-      <div class="nav-item" data-page="memo"><span class="icon">&#128221;</span><span>할일 메모</span></div>
-    </nav>
-    <main class="content" id="content"></main>
-  </div>
+  <div class="desk">
+    <header class="bar">
+      <span class="brand">PJH-DESK</span>
+      <div class="bar-actions">
+        <button id="btn-pin" class="icon-btn" title="항상 위에 두기">
+          <svg viewBox="0 0 16 16"><path d="M5 2h6l-1 4 3 3H3l3-3zM8 9v5"/></svg>
+        </button>
+        <button id="btn-refresh" class="icon-btn" title="새로고침">
+          <svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 2v3h-3"/></svg>
+        </button>
+        <button id="btn-hide" class="icon-btn" title="숨기기 (트레이 아이콘으로 다시 열기)">
+          <svg viewBox="0 0 16 16"><path d="M3 8h10"/></svg>
+        </button>
+      </div>
+    </header>
 
-  <script src="app.js"></script>
-  <script src="modules/news.js"></script>
-  <script src="modules/weather.js"></script>
-  <script src="modules/memo.js"></script>
+    <section class="clock">
+      <div id="time" class="time">--:--</div>
+      <div id="date" class="date"></div>
+    </section>
+
+    <section class="block" id="weather">
+      <div class="label">날씨</div>
+      <div id="weather-body" class="muted small">불러오는 중...</div>
+    </section>
+
+    <section class="block" id="todo">
+      <div class="label">오늘 할 일 <span id="todo-count" class="count"></span></div>
+      <ul id="todo-list" class="todo-list"></ul>
+      <input id="todo-input" class="todo-input" maxlength="200" placeholder="할 일 추가 후 Enter">
+    </section>
+
+    <section class="block news">
+      <div class="tabs" id="tabs">
+        <button class="tab" data-tab="korea">한국</button>
+        <button class="tab" data-tab="world">세계</button>
+        <button class="tab" data-tab="hn">Hacker News</button>
+      </div>
+      <div id="news-list" class="news-list"><div class="muted small">불러오는 중...</div></div>
+    </section>
+
+    <footer class="foot"><span id="updated"></span></footer>
+  </div>
+  <script src="desk.js"></script>
 </body>
 </html>
