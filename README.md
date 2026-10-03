@@ -27,9 +27,11 @@
 ```bash
 npm install
 npm start                          # 개발 실행
-npx electron-builder --win portable   # dist/PJH-Desk.exe (설치 없이 실행되는 exe 하나)
+npm run dist                       # dist/PJH-Desk.exe (설치 없이 실행되는 exe 하나)
 npx electron-builder --win nsis       # dist/PJH-Desk-Setup.exe (설치 파일)
 ```
+
+압축은 5단계로 고정했어요. 최고 단계(9)는 이 PC에서 메모리 부족으로 자주 실패해요.
 
 VS Code 안의 터미널에서 실행할 때 `ELECTRON_RUN_AS_NODE=1`이 설정돼 있으면 Electron이 일반 node처럼 동작해서 켜지지 않아요. 그 변수를 지우고 실행하세요.
 
