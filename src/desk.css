@@ -56,13 +56,13 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .icon-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---- 시계 ---- */
-.clock { padding: 6px 20px 18px; }
+.clock { padding: 6px 20px 14px; }
 .time { font-size: 56px; font-weight: 200; letter-spacing: -1px; line-height: 1.05; font-variant-numeric: tabular-nums; }
 .date { color: var(--muted); margin-top: 2px; }
 
 /* ---- 공통 블록 ---- */
-.block { padding: 16px 20px; border-top: 1px solid var(--line); }
-.label { font-size: 11px; font-weight: 600; color: var(--faint); margin-bottom: 10px; }
+.block { padding: 13px 20px; border-top: 1px solid var(--line); }
+.label { font-size: 11px; font-weight: 600; color: var(--faint); margin-bottom: 8px; }
 .count { letter-spacing: 0; font-weight: 400; margin-left: 4px; }
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
@@ -77,7 +77,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .wx-side { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .wx-desc { color: var(--fg); }
 .wx-range { color: var(--muted); font-size: 12px; }
-.wx-loc { margin-top: 10px; font-size: 12px; }
+.wx-loc { font-size: 12px; }
+.wx-loc:not(:empty) { margin-top: 10px; }
+.wx-place { margin-left: auto; align-self: flex-start; font-size: 12px; white-space: nowrap; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 .wx-hours { display: none; grid-template-columns: repeat(8, 1fr); gap: 2px; margin-top: 12px; }
 .wx-hours.open { display: grid; }
 .wx-hour { text-align: center; font-size: 11px; color: var(--muted); }
@@ -181,3 +183,36 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .badge.ransom { color: var(--error); border: 1px solid rgba(229, 72, 77, 0.5); }
 .dot.inline { display: inline-block; margin-right: 8px; vertical-align: 1px; }
 .item-ko.gap { margin-top: 6px; }
+
+/* ---- 지금 재생 중 ---- */
+.hidden { display: none !important; }
+.np { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.035); }
+.np-text { flex: 1; min-width: 0; }
+.np-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-sub { font-size: 11px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.np.paused .np-title { color: var(--muted); }
+.np-ctrl { display: flex; gap: 0; flex: none; }
+.np-ctrl .icon-btn { width: 24px; height: 24px; color: var(--muted); }
+.np-ctrl .icon-btn:disabled { opacity: 0.3; cursor: default; }
+.np-ctrl .icon-btn svg { fill: none; }
+.np-ctrl [data-media="prev"] svg path:last-child, .np-ctrl [data-media="next"] svg path:last-child { fill: currentColor; }
+
+/* ---- 오늘: 집중 타이머 + 자리 비움 ---- */
+.today { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.today-col { min-width: 0; display: flex; flex-direction: column; }
+.focus-time { font-size: 30px; font-weight: 200; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.focus-time.break { color: var(--muted); }
+.focus-mode { font-size: 11px; color: var(--faint); margin-top: 2px; }
+.focus-btns { display: flex; gap: 6px; margin-top: 10px; }
+.pill {
+  padding: 5px 12px; border-radius: 999px; font-size: 12px;
+  background: rgba(255, 255, 255, 0.07); color: var(--fg); transition: background 0.15s;
+  align-self: flex-start;
+}
+.pill:hover { background: rgba(255, 255, 255, 0.13); }
+.pill.ghost { background: transparent; color: var(--faint); }
+.pill.ghost:hover { color: var(--fg); background: var(--hover); }
+.lock-sum { font-size: 13px; line-height: 1.5; }
+.lock-sum b { font-weight: 400; font-size: 22px; font-variant-numeric: tabular-nums; }
+.lock-warn { font-size: 11px; color: var(--warn); min-height: 15px; margin: 2px 0 8px; }
+#lock-now { margin-top: auto; }

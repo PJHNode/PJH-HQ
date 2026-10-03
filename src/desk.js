@@ -118,13 +118,15 @@
           <span class="wx-desc">${esc(desc)}</span>
           <span class="wx-range">${hi != null ? `최고 ${hi}° · 최저 ${lo}°` : ''} · 습도 ${esc(current.relative_humidity_2m)}%</span>
         </div>
+        <span class="link wx-place" id="wx-change" title="눌러서 지역 바꾸기">${esc(weatherLocation.name || '현재 위치')}</span>
       </div>
       <div class="wx-hours ${hoursOpen ? 'open' : ''}" id="wx-hours">
         ${hours.map((h) => `<div class="wx-hour">${h.hh}시<span class="e">${h.emoji}</span><b>${h.temp}°</b>${h.rain != null ? `${h.rain}%` : ''}</div>`).join('')}
       </div>
-      <div class="wx-loc muted"><span class="link" id="wx-change" title="눌러서 지역 바꾸기">${esc(weatherLocation.name || '현재 위치')}</span></div>
+      <div class="wx-loc"></div>
     `;
-    $('wx-main').addEventListener('click', () => {
+    $('wx-main').addEventListener('click', (e) => {
+      if (e.target.closest('#wx-change')) return; // 지역 이름을 누른 건 예보 펼치기가 아니다
       hoursOpen = !hoursOpen;
       $('wx-hours').classList.toggle('open', hoursOpen);
     });
@@ -515,6 +517,173 @@
     if (item) api.openExternal(item.dataset.url);
   });
 
+  // ---------- 지금 재생 중 ----------
+
+  const ICON_PAUSE = '<svg viewBox="0 0 16 16"><path d="M5 3v10M11 3v10"/></svg>';
+  const ICON_PLAY = '<svg viewBox="0 0 16 16"><path d="M5 3l8 5-8 5z" fill="currentColor"/></svg>';
+
+  function appName(id) {
+    const s = String(id || '').toLowerCase();
+    if (!s) return '';
+    if (s.includes('spotify')) return 'Spotify';
+    if (s.includes('msedge')) return 'Edge';
+    if (s.includes('chrome')) return 'Chrome';
+    if (s.includes('firefox') || s.includes('308046b0af4a39cb')) return 'Firefox';
+    if (s.includes('whale')) return 'Whale';
+    if (s.includes('zunemusic') || s.includes('media.player')) return '미디어 플레이어';
+    if (s.includes('vlc')) return 'VLC';
+    return String(id).split(/[\\/!]/).pop().replace(/\.exe$/i, '');
+  }
+
+  async function loadMedia() {
+    let m;
+    try {
+      m = await api.media.get();
+    } catch {
+      return;
+    }
+    const box = $('now-playing');
+    if (!m || m.status === 'none' || !m.title) {
+      box.classList.add('hidden');
+      return;
+    }
+    box.classList.remove('hidden');
+    box.classList.toggle('paused', !m.playing);
+    $('np-title').textContent = m.title;
+    $('np-sub').textContent = [m.artist, appName(m.app)].filter(Boolean).join(' · ');
+    $('np-toggle').innerHTML = m.playing ? ICON_PAUSE : ICON_PLAY;
+    $('np-toggle').title = m.playing ? '일시정지' : '재생';
+    box.querySelector('[data-media="prev"]').disabled = !m.canPrev;
+    box.querySelector('[data-media="next"]').disabled = !m.canNext;
+  }
+
+  $('now-playing').addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-media]');
+    if (!btn || btn.disabled) return;
+    await api.media.command(btn.dataset.media);
+    setTimeout(loadMedia, 400);
+  });
+
+  // ---------- 집중 타이머 ----------
+
+  const FOCUS_KEY = 'pjh-desk:focus';
+  const FOCUS_COUNT_KEY = 'pjh-desk:focus-count';
+  const FOCUS_MS = 25 * 60 * 1000;
+  const BREAK_MS = 5 * 60 * 1000;
+
+  // 위젯을 다시 켜도 이어지도록 끝나는 시각을 저장해 둔다.
+  let focus = readJson(FOCUS_KEY) || { mode: 'focus', running: false, endAt: null, remainMs: FOCUS_MS };
+
+  function saveFocus() {
+    localStorage.setItem(FOCUS_KEY, JSON.stringify(focus));
+  }
+
+  function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function focusCount() {
+    const c = readJson(FOCUS_COUNT_KEY);
+    return c && c.date === todayStr() ? c.n : 0;
+  }
+
+  function addFocusCount() {
+    localStorage.setItem(FOCUS_COUNT_KEY, JSON.stringify({ date: todayStr(), n: focusCount() + 1 }));
+  }
+
+  function focusLeft() {
+    return focus.running ? Math.max(0, focus.endAt - Date.now()) : focus.remainMs;
+  }
+
+  function finishPhase() {
+    if (focus.mode === 'focus') {
+      addFocusCount();
+      api.focus.notify('focus-over');
+      focus = { mode: 'break', running: true, endAt: Date.now() + BREAK_MS, remainMs: BREAK_MS };
+    } else {
+      api.focus.notify('break-over');
+      focus = { mode: 'focus', running: false, endAt: null, remainMs: FOCUS_MS };
+    }
+    saveFocus();
+  }
+
+  function tickFocus() {
+    if (focus.running && focusLeft() <= 0) finishPhase();
+    const left = focusLeft();
+    const sec = Math.ceil(left / 1000);
+    const el = $('focus-time');
+    el.textContent = `${pad(Math.floor(sec / 60))}:${pad(sec % 60)}`;
+    el.classList.toggle('break', focus.mode === 'break');
+    $('focus').querySelector('.label').firstChild.nodeValue = focus.mode === 'break' ? '휴식 ' : '집중 ';
+    const full = focus.mode === 'break' ? BREAK_MS : FOCUS_MS;
+    $('focus-start').textContent = focus.running ? '일시정지' : (left < full ? '계속' : '시작');
+    const n = focusCount();
+    $('focus-count').textContent = n ? `오늘 ${n}회` : '';
+  }
+
+  $('focus-start').addEventListener('click', () => {
+    if (focus.running) {
+      focus.remainMs = focusLeft();
+      focus.running = false;
+      focus.endAt = null;
+    } else {
+      focus.endAt = Date.now() + focus.remainMs;
+      focus.running = true;
+    }
+    saveFocus();
+    tickFocus();
+  });
+
+  $('focus-reset').addEventListener('click', () => {
+    focus = { mode: 'focus', running: false, endAt: null, remainMs: FOCUS_MS };
+    saveFocus();
+    tickFocus();
+  });
+
+  // ---------- 자리 비움 (PJH-LOCK) ----------
+
+  function fmtDuration(ms) {
+    const min = Math.round(ms / 60000);
+    if (min < 60) return `${min}분`;
+    return `${Math.floor(min / 60)}시간 ${min % 60}분`;
+  }
+
+  let lockNotice = '';
+
+  async function loadLock() {
+    let s = null;
+    try {
+      s = await api.lock.summary();
+    } catch {
+      s = null;
+    }
+    if (!s) {
+      $('lock-sum').innerHTML = '<span class="muted small">PJH-LOCK 기록이 없어요</span>';
+      $('lock-warn').textContent = lockNotice;
+      return;
+    }
+    $('lock-sum').innerHTML = s.locks
+      ? `<b>${s.locks}</b>번 · ${esc(fmtDuration(s.awayMs))}`
+      : '<span class="muted small">오늘은 아직 없어요</span>';
+    const warn = [];
+    if (s.failures) warn.push(`비밀번호 실패 ${s.failures}번`);
+    if (s.osLocks) warn.push(`Windows 잠금 전환 ${s.osLocks}번`);
+    if (s.incidents) warn.push(`강제 종료 ${s.incidents}번`);
+    $('lock-warn').textContent = lockNotice || warn.join(' · ');
+    $('lock-warn').title = '오늘 PJH-LOCK 기록 (트레이 → 기록 보기에서 자세히)';
+  }
+
+  $('lock-now').addEventListener('click', async () => {
+    const r = await api.lock.now();
+    if (r.via === 'system' && r.reason === 'old-pjh-lock') lockNotice = 'PJH-LOCK을 새 버전으로 바꾸면 PJH-LOCK 화면으로 잠겨요';
+    else if (r.via === 'system' && r.reason === 'no-pjh-lock') lockNotice = 'PJH-LOCK이 꺼져 있어서 Windows 잠금으로 잠갔어요';
+    else if (r.via === 'failed') lockNotice = '잠그지 못했어요';
+    else lockNotice = '';
+    setTimeout(() => { lockNotice = ''; loadLock(); }, 15000);
+    loadLock();
+  });
+
   // ---------- 위쪽 버튼 ----------
 
   function showPinned(pinned) {
@@ -534,12 +703,18 @@
     loadTodo();
     loadNet();
     loadStatus();
+    loadLock();
   }
 
   // ---------- 시작 ----------
 
   tickClock();
-  setInterval(tickClock, 1000);
+  tickFocus();
+  setInterval(() => { tickClock(); tickFocus(); }, 1000);
+  loadMedia();
+  setInterval(loadMedia, 2000);
+  loadLock();
+  setInterval(loadLock, 60 * 1000);
   setTab(tab);
   api.desk.getPinned().then(showPinned);
   refreshAll();

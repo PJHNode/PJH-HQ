@@ -26,6 +26,34 @@
     <section class="clock">
       <div id="time" class="time">--:--</div>
       <div id="date" class="date"></div>
+      <div id="now-playing" class="np hidden">
+        <div class="np-text">
+          <div class="np-title" id="np-title"></div>
+          <div class="np-sub" id="np-sub"></div>
+        </div>
+        <div class="np-ctrl">
+          <button class="icon-btn" data-media="prev" title="이전"><svg viewBox="0 0 16 16"><path d="M4 3v10M13 3 6 8l7 5z"/></svg></button>
+          <button class="icon-btn" data-media="toggle" id="np-toggle" title="재생/일시정지"><svg viewBox="0 0 16 16"><path d="M5 3v10M11 3v10"/></svg></button>
+          <button class="icon-btn" data-media="next" title="다음"><svg viewBox="0 0 16 16"><path d="M12 3v10M3 3l7 5-7 5z"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="block today">
+      <div class="today-col" id="focus">
+        <div class="label">집중 <span class="count" id="focus-count"></span></div>
+        <div class="focus-time" id="focus-time">25:00</div>
+        <div class="focus-btns">
+          <button class="pill" id="focus-start">시작</button>
+          <button class="pill ghost" id="focus-reset">초기화</button>
+        </div>
+      </div>
+      <div class="today-col" id="lockbox">
+        <div class="label">자리 비움</div>
+        <div class="lock-sum" id="lock-sum"><span class="muted small">기록 없음</span></div>
+        <div class="lock-warn" id="lock-warn"></div>
+        <button class="pill" id="lock-now" title="지금 잠그기 (PJH-LOCK)">지금 잠그기</button>
+      </div>
     </section>
 
     <section class="block" id="weather">

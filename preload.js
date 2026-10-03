@@ -22,6 +22,17 @@ contextBridge.exposeInMainWorld('api', {
     toggle: (id) => ipcRenderer.invoke('todo:toggle', id),
     remove: (id) => ipcRenderer.invoke('todo:remove', id),
   },
+  lock: {
+    summary: () => ipcRenderer.invoke('lock:summary'),
+    now: () => ipcRenderer.invoke('lock:now'),
+  },
+  media: {
+    get: () => ipcRenderer.invoke('media:get'),
+    command: (cmd) => ipcRenderer.invoke('media:command', cmd),
+  },
+  focus: {
+    notify: (kind) => ipcRenderer.send('focus:notify', kind),
+  },
   desk: {
     getPinned: () => ipcRenderer.invoke('desk:getPinned'),
     togglePin: () => ipcRenderer.invoke('desk:togglePin'),

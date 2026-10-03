@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, screen, Notification } = require('electron');
 const path = require('path');
 const { fetchTodayNews } = require('./modules/news/fetch');
 const { fetchHackerNews } = require('./modules/hn/fetch');
@@ -10,6 +10,8 @@ const netInfo = require('./modules/net/info');
 const { fetchStatus } = require('./modules/status/fetch');
 const { fetchGeekNews } = require('./modules/geek/fetch');
 const { fetchKev } = require('./modules/kev/fetch');
+const lockBridge = require('./modules/lock/bridge');
+const media = require('./modules/media/now');
 
 // PJH Desk: 바탕화면 오른쪽에 떠 있는 위젯. 시계 · 날씨 · 시스템(PC·네트워크·서비스 상태) · 오늘 할 일 ·
 // 헤드라인(BBC 한국/세계, GeekNews, Hacker News, 보안 취약점).
@@ -25,7 +27,7 @@ let quitting = false;
 
 function defaultBounds() {
   const area = screen.getPrimaryDisplay().workArea;
-  const height = Math.min(area.height - MARGIN * 2, 980);
+  const height = Math.min(area.height - MARGIN * 2, 1200);
   return { x: area.x + area.width - WIDTH - MARGIN, y: area.y + MARGIN, width: WIDTH, height };
 }
 
@@ -166,6 +168,7 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', showWidget);
+  if (isWindows) app.setAppUserModelId('com.pjh.desk'); // Windows 알림에 앱 이름이 제대로 나오게 한다
   app.whenReady().then(() => {
     createWidget();
     createTray();
@@ -173,7 +176,7 @@ if (!app.requestSingleInstanceLock()) {
     screen.on('display-removed', () => { if (win && !onSomeDisplay(win.getBounds())) resetPosition(); });
     screen.on('display-metrics-changed', () => { if (win && !onSomeDisplay(win.getBounds())) resetPosition(); });
   });
-  app.on('before-quit', () => { quitting = true; });
+  app.on('before-quit', () => { quitting = true; media.stop(); });
   app.on('window-all-closed', () => {}); // 트레이에 남는다
 }
 
@@ -187,6 +190,21 @@ ipcMain.handle('kev:fetch', () => fetchKev());
 ipcMain.handle('sys:sample', () => sys.sample());
 ipcMain.handle('net:info', () => netInfo.info());
 ipcMain.handle('status:fetch', () => fetchStatus());
+
+ipcMain.handle('lock:summary', () => lockBridge.summary());
+ipcMain.handle('lock:now', () => lockBridge.lockNow());
+
+ipcMain.handle('media:get', () => media.get());
+ipcMain.handle('media:command', (_e, cmd) => media.command(String(cmd)));
+
+// 집중 타이머가 끝났을 때 알림. 제목과 내용은 정해진 문구만 받는다.
+ipcMain.on('focus:notify', (_e, kind) => {
+  if (!Notification.isSupported()) return;
+  const text = kind === 'break-over'
+    ? { title: '휴식 끝', body: '다시 집중할 시간이에요.' }
+    : { title: '집중 끝', body: '수고했어요. 5분 쉬어요.' };
+  new Notification({ ...text, icon: path.join(__dirname, 'assets', 'icon.png'), silent: false }).show();
+});
 
 ipcMain.handle('weather:detectLocation', () => weather.detectLocation());
 ipcMain.handle('weather:search', (_e, query) => weather.searchLocation(String(query || '')));
