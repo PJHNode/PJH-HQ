@@ -824,7 +824,60 @@
   }
 
   $('btn-pin').addEventListener('click', async () => showPinned(await api.desk.togglePin()));
-  $('btn-hide').addEventListener('click', () => api.desk.hide());
+  $('btn-hide').addEventListener('click', () => api.desk.mini());
+
+  // ---------- 작게 접은 타일 ----------
+
+  api.desk.onMode((mode) => {
+    document.body.classList.toggle('mini', mode === 'mini');
+    if (mode === 'mini') closeSettings();
+    tickMini();
+  });
+
+  // 평소엔 시계, 집중 타이머가 도는 동안엔 남은 시간을 보여준다.
+  function tickMini() {
+    if (!document.body.classList.contains('mini')) return;
+    const tile = $('mini');
+    const focusing = focus.running && focus.mode === 'focus';
+    if (focusing) {
+      const sec = Math.ceil(focusLeft() / 1000);
+      $('mini-time').textContent = `${pad(Math.floor(sec / 60))}:${pad(sec % 60)}`;
+      tile.title = '집중 중 · 눌러서 펼치기 · 끌어서 옮기기';
+    } else {
+      const now = new Date();
+      $('mini-time').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      tile.title = '눌러서 펼치기 · 끌어서 옮기기';
+    }
+    tile.classList.toggle('focusing', focusing);
+  }
+
+  // 타일은 클릭도 받아야 해서 창 끌기 영역을 쓰지 않고 직접 옮긴다. 4px 넘게 움직이면 끌기, 아니면 펼치기.
+  (function miniDrag() {
+    const tile = $('mini');
+    let start = null;
+    let last = null;
+    let moved = false;
+    tile.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      tile.setPointerCapture(e.pointerId);
+      start = last = { x: e.screenX, y: e.screenY };
+      moved = false;
+    });
+    tile.addEventListener('pointermove', (e) => {
+      if (!start) return;
+      if (!moved && Math.abs(e.screenX - start.x) + Math.abs(e.screenY - start.y) > 4) moved = true;
+      if (!moved) return;
+      api.desk.dragBy(e.screenX - last.x, e.screenY - last.y);
+      last = { x: e.screenX, y: e.screenY };
+    });
+    tile.addEventListener('pointerup', (e) => {
+      if (!start) return;
+      tile.releasePointerCapture(e.pointerId);
+      if (moved) api.desk.dragEnd();
+      else api.desk.expand();
+      start = null;
+    });
+  })();
   $('btn-refresh').addEventListener('click', refreshAll);
   api.desk.onPinned(showPinned);
   api.desk.onRefresh(refreshAll);
@@ -842,7 +895,7 @@
 
   tickClock();
   tickFocus();
-  setInterval(() => { tickClock(); tickFocus(); }, 1000);
+  setInterval(() => { tickClock(); tickFocus(); tickMini(); }, 1000);
   loadMedia();
   setInterval(loadMedia, 2000);
   loadLock();

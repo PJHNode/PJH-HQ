@@ -12,6 +12,7 @@ const { fetchGeekNews } = require('./modules/geek/fetch');
 const { fetchKev } = require('./modules/kev/fetch');
 const lockBridge = require('./modules/lock/bridge');
 const media = require('./modules/media/now');
+const vdesk = require('./modules/desk/vdesk');
 const translate = require('./modules/news/translate');
 const translateConfig = require('./modules/news/translate-config');
 
@@ -23,16 +24,49 @@ translate.setConfigSource(() => translateConfig.getSecret());
 
 const WIDTH = 380;
 const MARGIN = 24;
+const MINI = 72;        // 작게 접었을 때 타일 크기
+const MINI_MARGIN = 16;
 const isWindows = process.platform === 'win32';
 
 let win = null;
 let tray = null;
 let quitting = false;
+let mini = false; // 작게 접힌 상태(앱이 준비된 뒤 저장된 값을 읽는다)
+let deskRetries = [];
 
-function defaultBounds() {
-  const area = screen.getPrimaryDisplay().workArea;
+function defaultBounds(display = screen.getPrimaryDisplay()) {
+  const area = display.workArea;
   const height = Math.min(area.height - MARGIN * 2, 1200);
   return { x: area.x + area.width - WIDTH - MARGIN, y: area.y + MARGIN, width: WIDTH, height };
+}
+
+// 작게 접은 타일 기본 위치: 그 모니터의 오른쪽 위 구석
+function defaultMiniBounds(display) {
+  const area = display.workArea;
+  return { x: area.x + area.width - MINI - MINI_MARGIN, y: area.y + MINI_MARGIN, width: MINI, height: MINI };
+}
+
+function sameDisplay(a, b) {
+  return screen.getDisplayMatching(a).id === screen.getDisplayMatching(b).id;
+}
+
+// 펼친 위젯 위치: 저장된 위치가 그 모니터에 있으면 그대로, 아니면 그 모니터의 기본 위치
+function fullBoundsOn(display) {
+  const def = defaultBounds(display);
+  const saved = state.get('position');
+  if (saved && onSomeDisplay({ ...def, ...saved }) && sameDisplay({ ...def, ...saved }, def)) return { ...def, x: saved.x, y: saved.y };
+  return def;
+}
+
+function miniBoundsOn(display) {
+  const def = defaultMiniBounds(display);
+  const saved = state.get('miniPosition');
+  if (saved && onSomeDisplay({ ...def, ...saved }) && sameDisplay({ ...def, ...saved }, def)) return { ...def, x: saved.x, y: saved.y };
+  return def;
+}
+
+function cursorDisplay() {
+  return screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
 }
 
 // 모니터를 뺐거나 해상도가 바뀌어서 저장된 위치가 화면 밖이면 기본 위치로 돌린다.
@@ -58,7 +92,7 @@ function createWidget() {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    // Windows: '도구 창'으로 만들면 모든 가상 데스크톱에 보이고 Alt+Tab 목록에도 안 나온다.
+    // Windows: '도구 창'이라 Alt+Tab 목록에 안 나온다. (가상 데스크톱 따라가기는 followVirtualDesktop이 맡는다)
     ...(isWindows ? { type: 'toolbar' } : {}),
     hasShadow: false,
     show: false,
@@ -75,7 +109,12 @@ function createWidget() {
   if (!isWindows) win.setVisibleOnAllWorkspaces(true);
 
   win.loadFile(path.join(__dirname, 'src', 'index.html'));
-  win.once('ready-to-show', () => win.showInactive()); // 켜질 때 다른 창의 포커스를 뺏지 않는다
+  win.once('ready-to-show', () => {
+    if (mini) win.setBounds(miniBoundsOn(screen.getDisplayMatching(win.getBounds())));
+    win.showInactive(); // 켜질 때 다른 창의 포커스를 뺏지 않는다
+    followVirtualDesktop();
+  });
+  win.webContents.on('did-finish-load', () => win.webContents.send('desk:mode', mini ? 'mini' : 'full'));
 
   // 개발용: PJH_DESK_CAPTURE=파일경로 로 실행하면 데이터를 다 불러온 뒤 화면을 PNG로 저장하고 끈다.
   if (process.env.PJH_DESK_CAPTURE) {
@@ -101,7 +140,7 @@ function createWidget() {
 
   win.on('moved', () => {
     const { x, y } = win.getBounds();
-    state.set('position', { x, y });
+    state.set(mini ? 'miniPosition' : 'position', { x, y });
   });
   win.on('close', (e) => {
     if (!quitting) {
@@ -124,9 +163,13 @@ function openExternal(url) {
 
 // 다른 창 뒤에 깔려 있어도 확실하게 맨 앞으로 꺼낸다.
 // Windows는 다른 프로그램 창을 함부로 맨 앞에 못 올리게 막아서, 잠깐 '항상 위'로 올렸다가 원래대로 돌린다.
+// 펼친 위젯을 마우스가 있는 모니터에 꺼낸다(이미 그 모니터에 있으면 자리 그대로).
 function showWidget() {
   if (!win) return;
   if (win.isMinimized()) win.restore();
+  const target = cursorDisplay();
+  if (mini) setMini(false, target);
+  else if (screen.getDisplayMatching(win.getBounds()).id !== target.id) win.setBounds(fullBoundsOn(target));
   win.show();
   win.setAlwaysOnTop(true);
   win.moveTop();
@@ -138,11 +181,39 @@ function hideWidget() {
   if (win) win.hide();
 }
 
-// 단축키(Ctrl+Alt+D): 이미 맨 앞에서 쓰고 있으면 숨기고, 아니면 꺼낸다.
+// 작게 접기/펼치기. 접으면 그 모니터 구석의 작은 타일이 되고, 펼치면 원래 자리로 돌아간다.
+function setMini(on, display) {
+  if (!win) return;
+  const where = display || screen.getDisplayMatching(win.getBounds());
+  mini = on;
+  state.set('mini', on);
+  win.setBounds(on ? miniBoundsOn(where) : fullBoundsOn(where));
+  win.webContents.send('desk:mode', on ? 'mini' : 'full');
+}
+
+// 단축키(Ctrl+Alt+D): 펼친 위젯을 쓰는 중이면 작게 접고, 아니면 마우스 있는 곳에 펼쳐서 꺼낸다.
 function toggleWidget() {
   if (!win) return;
-  if (win.isVisible() && win.isFocused()) hideWidget();
+  if (win.isVisible() && win.isFocused() && !mini) setMini(true);
   else showWidget();
+}
+
+// 위젯이 지금 보고 있는 가상 데스크톱에 없으면 데려온다(Windows).
+// 숨겼다 다시 보이면 Windows가 현재 데스크톱에 띄운다. 1분에 3번 넘게 실패하면 잠시 멈춘다.
+function followVirtualDesktop() {
+  if (!isWindows || !win) return;
+  const handle = win.getNativeWindowHandle();
+  const hwnd = handle.length >= 8 ? handle.readBigUInt64LE(0) : BigInt(handle.readUInt32LE(0));
+  vdesk.start(hwnd.toString(), (stateText) => {
+    if (stateText !== 'off' || !win || !win.isVisible()) return;
+    const now = Date.now();
+    deskRetries = deskRetries.filter((t) => now - t < 60000);
+    if (deskRetries.length >= 3) return;
+    deskRetries.push(now);
+    win.hide();
+    win.showInactive();
+    win.setAlwaysOnTop(!!state.get('pinned'));
+  });
 }
 
 function setPinned(pinned) {
@@ -154,7 +225,11 @@ function setPinned(pinned) {
 
 function resetPosition() {
   state.set('position', null);
-  if (win) win.setBounds(defaultBounds());
+  state.set('miniPosition', null);
+  if (win) {
+    if (mini) setMini(false, screen.getPrimaryDisplay());
+    else win.setBounds(defaultBounds());
+  }
   showWidget();
 }
 
@@ -162,6 +237,7 @@ function buildTrayMenu() {
   if (!tray) return;
   const items = [
     { label: 'PJH Desk 앞으로 꺼내기  (Ctrl+Alt+D)', click: showWidget },
+    { label: '작게 접기', click: () => setMini(true) },
     { label: '숨기기', click: hideWidget },
     { label: '항상 위에 두기', type: 'checkbox', checked: !!state.get('pinned'), click: (m) => setPinned(m.checked) },
     { label: '새로고침', click: () => win && win.webContents.send('desk:refresh') },
@@ -197,6 +273,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', showWidget);
   if (isWindows) app.setAppUserModelId('com.pjh.desk'); // Windows 알림에 앱 이름이 제대로 나오게 한다
   app.whenReady().then(() => {
+    mini = !!state.get('mini');
     createWidget();
     createTray();
     if (!globalShortcut.register('Control+Alt+D', toggleWidget)) console.warn('Ctrl+Alt+D 단축키를 다른 프로그램이 쓰고 있어요');
@@ -204,7 +281,7 @@ if (!app.requestSingleInstanceLock()) {
     screen.on('display-removed', () => { if (win && !onSomeDisplay(win.getBounds())) resetPosition(); });
     screen.on('display-metrics-changed', () => { if (win && !onSomeDisplay(win.getBounds())) resetPosition(); });
   });
-  app.on('before-quit', () => { quitting = true; media.stop(); });
+  app.on('before-quit', () => { quitting = true; media.stop(); vdesk.stop(); });
   app.on('will-quit', () => globalShortcut.unregisterAll());
   app.on('window-all-closed', () => {}); // 트레이에 남는다
 }
@@ -263,4 +340,15 @@ ipcMain.handle('todo:remove', (_e, id) => todo.remove(String(id)));
 ipcMain.handle('desk:getPinned', () => !!state.get('pinned'));
 ipcMain.handle('desk:togglePin', () => { setPinned(!state.get('pinned')); return !!state.get('pinned'); });
 ipcMain.on('desk:hide', () => win && win.hide());
+ipcMain.on('desk:mini', () => setMini(true));
+ipcMain.on('desk:expand', () => setMini(false));
+// 작은 타일은 클릭도 받아야 해서 창 끌기 영역 대신 직접 옮긴다.
+ipcMain.on('desk:dragBy', (_e, { dx, dy }) => {
+  if (!win || !mini) return;
+  const b = win.getBounds();
+  win.setPosition(Math.round(b.x + Number(dx || 0)), Math.round(b.y + Number(dy || 0)));
+});
+ipcMain.on('desk:dragEnd', () => {
+  if (win && mini) { const { x, y } = win.getBounds(); state.set('miniPosition', { x, y }); }
+});
 ipcMain.on('shell:openExternal', (_e, url) => openExternal(url));

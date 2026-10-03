@@ -249,3 +249,21 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .foot { display: flex; justify-content: space-between; gap: 10px; }
 .tr-state { color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tr-state.bad { color: var(--warn); cursor: pointer; }
+
+/* ---- 작게 접은 타일 ---- */
+.mini-tile { display: none; }
+body.mini .desk { display: none; }
+body.mini .mini-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+  width: 100vw; height: 100vh; border-radius: 16px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--line);
+  transition: background 0.15s;
+}
+body.mini .mini-tile:hover { background: rgba(22, 22, 25, 0.96); }
+.mini-time { font-size: 17px; font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: -0.3px; }
+.mini-bars { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.mini-bars i { display: block; height: 2px; border-radius: 1px; background: var(--muted); }
+.mini-bars i:nth-child(1) { width: 22px; }
+.mini-bars i:nth-child(2) { width: 15px; }
+.mini-bars i:nth-child(3) { width: 19px; }
+.mini-tile.focusing .mini-bars i { background: var(--fg); }
