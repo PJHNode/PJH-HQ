@@ -26,6 +26,11 @@ contextBridge.exposeInMainWorld('api', {
     summary: () => ipcRenderer.invoke('lock:summary'),
     now: () => ipcRenderer.invoke('lock:now'),
   },
+  translate: {
+    get: () => ipcRenderer.invoke('translate:get'),
+    save: (cfg) => ipcRenderer.invoke('translate:save', cfg),
+    test: (cfg) => ipcRenderer.invoke('translate:test', cfg),
+  },
   media: {
     get: () => ipcRenderer.invoke('media:get'),
     command: (cmd) => ipcRenderer.invoke('media:command', cmd),

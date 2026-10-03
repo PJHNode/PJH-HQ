@@ -27,6 +27,7 @@ html, body {
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
 
 .desk {
+  position: relative;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -216,3 +217,35 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .lock-sum b { font-weight: 400; font-size: 22px; font-variant-numeric: tabular-nums; }
 .lock-warn { font-size: 11px; color: var(--warn); min-height: 15px; margin: 2px 0 8px; }
 #lock-now { margin-top: auto; }
+
+/* ---- 설정 화면 (위젯 안에 겹쳐 열린다) ---- */
+.settings {
+  position: absolute; left: 0; right: 0; top: 44px; bottom: 0;
+  background: rgb(14, 14, 16); border-top: 1px solid var(--line);
+  overflow-y: auto; padding: 4px 20px 20px; z-index: 10;
+}
+.settings-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 0 6px; font-size: 14px; }
+.set-section { padding: 14px 0; border-top: 1px solid var(--line); }
+.set-row { display: flex; gap: 16px; font-size: 13px; color: var(--muted); }
+.set-row input { width: 58px; margin: 0 4px; }
+.settings input, .settings select {
+  padding: 7px 9px; border-radius: 8px; font: inherit; color: var(--fg); outline: none; user-select: text;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line);
+}
+.settings input:focus, .settings select:focus { border-color: rgba(255, 255, 255, 0.18); }
+.settings select { width: 100%; }
+.settings select option { background: #151517; }
+.set-key { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.set-help { font-size: 11px; color: var(--faint); line-height: 1.55; margin-top: 8px; }
+.set-help .link { color: var(--muted); }
+.set-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.set-msg { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; overflow-wrap: anywhere; }
+.set-actions .set-msg { margin-top: 0; }
+.set-msg.ok { color: var(--fg); }
+.set-msg.bad { color: var(--error); }
+
+.focus-mode.link { font-size: 11px; color: var(--faint); margin-top: 2px; align-self: flex-start; }
+.focus-mode.link:hover { color: var(--fg); }
+.foot { display: flex; justify-content: space-between; gap: 10px; }
+.tr-state { color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-state.bad { color: var(--warn); cursor: pointer; }

@@ -320,6 +320,7 @@
     renderNews();
     const now = new Date();
     $('updated').textContent = `업데이트 ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    updateTranslateState();
   }
 
   function geekItem(it) {
@@ -568,11 +569,14 @@
 
   const FOCUS_KEY = 'pjh-desk:focus';
   const FOCUS_COUNT_KEY = 'pjh-desk:focus-count';
-  const FOCUS_MS = 25 * 60 * 1000;
-  const BREAK_MS = 5 * 60 * 1000;
+  // 집중·휴식 시간은 설정 화면에서 바꿀 수 있다.
+  const FOCUS_CFG_KEY = 'pjh-desk:focus-config';
+  let focusCfg = readJson(FOCUS_CFG_KEY) || { focusMin: 25, breakMin: 5 };
+  const focusMs = () => focusCfg.focusMin * 60 * 1000;
+  const breakMs = () => focusCfg.breakMin * 60 * 1000;
 
   // 위젯을 다시 켜도 이어지도록 끝나는 시각을 저장해 둔다.
-  let focus = readJson(FOCUS_KEY) || { mode: 'focus', running: false, endAt: null, remainMs: FOCUS_MS };
+  let focus = readJson(FOCUS_KEY) || { mode: 'focus', running: false, endAt: null, remainMs: focusMs() };
 
   function saveFocus() {
     localStorage.setItem(FOCUS_KEY, JSON.stringify(focus));
@@ -600,10 +604,10 @@
     if (focus.mode === 'focus') {
       addFocusCount();
       api.focus.notify('focus-over');
-      focus = { mode: 'break', running: true, endAt: Date.now() + BREAK_MS, remainMs: BREAK_MS };
+      focus = { mode: 'break', running: true, endAt: Date.now() + breakMs(), remainMs: breakMs() };
     } else {
       api.focus.notify('break-over');
-      focus = { mode: 'focus', running: false, endAt: null, remainMs: FOCUS_MS };
+      focus = { mode: 'focus', running: false, endAt: null, remainMs: focusMs() };
     }
     saveFocus();
   }
@@ -616,10 +620,22 @@
     el.textContent = `${pad(Math.floor(sec / 60))}:${pad(sec % 60)}`;
     el.classList.toggle('break', focus.mode === 'break');
     $('focus').querySelector('.label').firstChild.nodeValue = focus.mode === 'break' ? '휴식 ' : '집중 ';
-    const full = focus.mode === 'break' ? BREAK_MS : FOCUS_MS;
+    const full = focus.mode === 'break' ? breakMs() : focusMs();
     $('focus-start').textContent = focus.running ? '일시정지' : (left < full ? '계속' : '시작');
     const n = focusCount();
     $('focus-count').textContent = n ? `오늘 ${n}회` : '';
+    $('focus-cfg').textContent = `${focusCfg.focusMin}분 집중 · ${focusCfg.breakMin}분 휴식`;
+  }
+
+  // 설정 화면에서 시간을 바꾸면 부른다. 멈춰 있으면 새 시간으로 바로 맞추고, 돌아가는 중이면 다음 단계부터 적용한다.
+  function applyFocusConfig(focusMin, breakMin) {
+    focusCfg = { focusMin, breakMin };
+    localStorage.setItem(FOCUS_CFG_KEY, JSON.stringify(focusCfg));
+    if (!focus.running) {
+      focus.remainMs = focus.mode === 'break' ? breakMs() : focusMs();
+      saveFocus();
+    }
+    tickFocus();
   }
 
   $('focus-start').addEventListener('click', () => {
@@ -636,7 +652,7 @@
   });
 
   $('focus-reset').addEventListener('click', () => {
-    focus = { mode: 'focus', running: false, endAt: null, remainMs: FOCUS_MS };
+    focus = { mode: 'focus', running: false, endAt: null, remainMs: focusMs() };
     saveFocus();
     tickFocus();
   });
@@ -683,6 +699,122 @@
     setTimeout(() => { lockNotice = ''; loadLock(); }, 15000);
     loadLock();
   });
+
+  // ---------- 설정 화면 ----------
+
+  const TR_HELP = {
+    deepl: '<span class="link" data-url="https://www.deepl.com/pro-api">deepl.com/pro-api</span>에서 "DeepL API Free"로 가입한 뒤, 계정 화면의 API 키를 복사해 넣어요(끝이 :fx). 가입할 때 카드 확인이 있지만 무료 한도 안에서는 청구되지 않아요.',
+    microsoft: '<span class="link" data-url="https://portal.azure.com/#create/Microsoft.CognitiveServicesTextTranslation">Azure 포털</span>에서 Translator 리소스를 무료(F0) 요금제로 만들고, "키 및 엔드포인트"의 키와 위치(리전)를 넣어요.',
+    google: '키 없이 쓰는 비공식 주소라 언제든 막힐 수 있어요. 지금 이 PC에서는 막혀 있어요.',
+    off: '세계 · HN · 보안 탭을 영어 원문 그대로 보여줘요.',
+  };
+  const TR_NAME = { deepl: 'DeepL', microsoft: 'Microsoft', google: 'Google', off: '끔' };
+
+  let trInfo = null;
+
+  function setMsg(id, text, kind) {
+    const el = $(id);
+    el.textContent = text;
+    el.className = `set-msg${kind ? ` ${kind}` : ''}`;
+  }
+
+  function renderProviderUI() {
+    const p = $('tr-provider').value;
+    const needsKey = p === 'deepl' || p === 'microsoft';
+    $('tr-key-row').classList.toggle('hidden', !needsKey);
+    $('tr-region').classList.toggle('hidden', p !== 'microsoft');
+    const saved = trInfo && trInfo.provider === p && trInfo.hasKey;
+    $('tr-key').placeholder = saved ? `저장된 키 ${trInfo.keyHint} (바꾸려면 새로 입력)` : 'API 키';
+    $('tr-help').innerHTML = TR_HELP[p] || '';
+  }
+
+  async function loadTranslateInfo() {
+    trInfo = await api.translate.get();
+    $('tr-provider').value = trInfo.provider;
+    $('tr-region').value = trInfo.region || '';
+    $('tr-key').value = '';
+    renderProviderUI();
+    if (!trInfo.canEncrypt) setMsg('tr-msg', '이 PC에서는 키를 암호화해 저장할 수 없어서 키 저장이 막혀 있어요.', 'bad');
+  }
+
+  function openSettings(section) {
+    $('cfg-focus').value = focusCfg.focusMin;
+    $('cfg-break').value = focusCfg.breakMin;
+    setMsg('cfg-focus-msg', '');
+    setMsg('tr-msg', '');
+    $('settings').classList.remove('hidden');
+    loadTranslateInfo();
+    if (section) $(section).scrollIntoView({ block: 'start' });
+  }
+
+  function closeSettings() {
+    $('settings').classList.add('hidden');
+    $('tr-key').value = ''; // 입력하던 키를 화면에 남기지 않는다
+  }
+
+  $('btn-settings').addEventListener('click', () => ($('settings').classList.contains('hidden') ? openSettings() : closeSettings()));
+  $('settings-close').addEventListener('click', closeSettings);
+  $('focus-cfg').addEventListener('click', () => openSettings('set-focus'));
+  $('tr-provider').addEventListener('change', () => { setMsg('tr-msg', ''); renderProviderUI(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('settings').classList.contains('hidden')) closeSettings(); });
+  $('tr-help').addEventListener('click', (e) => {
+    const link = e.target.closest('[data-url]');
+    if (link) api.openExternal(link.dataset.url);
+  });
+
+  $('cfg-focus-save').addEventListener('click', () => {
+    const f = Math.round(Number($('cfg-focus').value));
+    const b = Math.round(Number($('cfg-break').value));
+    if (!(f >= 1 && f <= 180) || !(b >= 1 && b <= 60)) {
+      setMsg('cfg-focus-msg', '집중은 1~180분, 휴식은 1~60분이에요', 'bad');
+      return;
+    }
+    applyFocusConfig(f, b);
+    setMsg('cfg-focus-msg', focus.running ? '다음 단계부터 적용돼요' : '적용했어요', 'ok');
+  });
+
+  function translateForm() {
+    const key = $('tr-key').value.trim();
+    return { provider: $('tr-provider').value, key: key || undefined, region: $('tr-region').value.trim() };
+  }
+
+  $('tr-test').addEventListener('click', async () => {
+    setMsg('tr-msg', '확인 중...');
+    const r = await api.translate.test(translateForm());
+    setMsg('tr-msg', r.ok ? `번역 결과: ${r.text}` : r.text, r.ok ? 'ok' : 'bad');
+  });
+
+  $('tr-save').addEventListener('click', async () => {
+    try {
+      trInfo = await api.translate.save(translateForm());
+      $('tr-key').value = '';
+      renderProviderUI();
+      setMsg('tr-msg', '저장했어요. 뉴스를 다시 불러와요.', 'ok');
+    } catch (err) {
+      setMsg('tr-msg', `저장하지 못했어요: ${(err && err.message) || err}`, 'bad');
+    }
+  });
+
+  // 아래쪽 줄에 번역 상태를 보여준다. 키가 필요하거나 오류가 나면 눌러서 설정으로 간다.
+  async function updateTranslateState() {
+    let info;
+    try {
+      info = await api.translate.get();
+    } catch {
+      return;
+    }
+    const el = $('tr-state');
+    const s = info.status || {};
+    let text = `번역 ${TR_NAME[info.provider] || ''}`;
+    let bad = false;
+    if (s.missingKey) { text = '번역: API 키가 필요해요'; bad = true; }
+    else if (s.lastError && Date.now() - s.lastError.at < 30 * 60 * 1000) { text = `번역 오류: ${s.lastError.message}`; bad = true; }
+    el.textContent = text;
+    el.classList.toggle('bad', bad);
+    el.title = bad ? '눌러서 번역 설정 열기' : '';
+  }
+
+  $('tr-state').addEventListener('click', () => { if ($('tr-state').classList.contains('bad')) openSettings('set-translate'); });
 
   // ---------- 위쪽 버튼 ----------
 

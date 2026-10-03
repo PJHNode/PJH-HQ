@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, screen, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, screen, Notification, globalShortcut } = require('electron');
 const path = require('path');
 const { fetchTodayNews } = require('./modules/news/fetch');
 const { fetchHackerNews } = require('./modules/hn/fetch');
@@ -12,6 +12,10 @@ const { fetchGeekNews } = require('./modules/geek/fetch');
 const { fetchKev } = require('./modules/kev/fetch');
 const lockBridge = require('./modules/lock/bridge');
 const media = require('./modules/media/now');
+const translate = require('./modules/news/translate');
+const translateConfig = require('./modules/news/translate-config');
+
+translate.setConfigSource(() => translateConfig.getSecret());
 
 // PJH Desk: 바탕화면 오른쪽에 떠 있는 위젯. 시계 · 날씨 · 시스템(PC·네트워크·서비스 상태) · 오늘 할 일 ·
 // 헤드라인(BBC 한국/세계, GeekNews, Hacker News, 보안 취약점).
@@ -54,6 +58,8 @@ function createWidget() {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
+    // Windows: '도구 창'으로 만들면 모든 가상 데스크톱에 보이고 Alt+Tab 목록에도 안 나온다.
+    ...(isWindows ? { type: 'toolbar' } : {}),
     hasShadow: false,
     show: false,
     alwaysOnTop: !!state.get('pinned'),
@@ -78,6 +84,12 @@ function createWidget() {
         if (process.env.PJH_DESK_CAPTURE_TAB) {
           await win.webContents.executeJavaScript(`document.querySelector('[data-tab="${process.env.PJH_DESK_CAPTURE_TAB.replace(/[^a-z]/g, '')}"]').click()`);
           await new Promise((r) => setTimeout(r, 300));
+        }
+        // PJH_DESK_CAPTURE_CLICK=버튼id 를 주면 그 버튼을 누른 화면을 찍는다(영문·숫자·-만 허용).
+        if (process.env.PJH_DESK_CAPTURE_CLICK) {
+          const id = process.env.PJH_DESK_CAPTURE_CLICK.replace(/[^a-zA-Z0-9-]/g, '');
+          await win.webContents.executeJavaScript(`document.getElementById('${id}') && document.getElementById('${id}').click()`);
+          await new Promise((r) => setTimeout(r, 800));
         }
         const image = await win.webContents.capturePage();
         require('fs').writeFileSync(process.env.PJH_DESK_CAPTURE, image.toPNG());
@@ -110,15 +122,26 @@ function openExternal(url) {
   if (typeof url === 'string' && /^https?:\/\//.test(url)) shell.openExternal(url);
 }
 
+// 다른 창 뒤에 깔려 있어도 확실하게 맨 앞으로 꺼낸다.
+// Windows는 다른 프로그램 창을 함부로 맨 앞에 못 올리게 막아서, 잠깐 '항상 위'로 올렸다가 원래대로 돌린다.
 function showWidget() {
   if (!win) return;
-  win.showInactive();
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.setAlwaysOnTop(true);
   win.moveTop();
+  win.focus();
+  setTimeout(() => { if (win) win.setAlwaysOnTop(!!state.get('pinned')); }, 300);
 }
 
+function hideWidget() {
+  if (win) win.hide();
+}
+
+// 단축키(Ctrl+Alt+D): 이미 맨 앞에서 쓰고 있으면 숨기고, 아니면 꺼낸다.
 function toggleWidget() {
   if (!win) return;
-  if (win.isVisible()) win.hide();
+  if (win.isVisible() && win.isFocused()) hideWidget();
   else showWidget();
 }
 
@@ -138,7 +161,8 @@ function resetPosition() {
 function buildTrayMenu() {
   if (!tray) return;
   const items = [
-    { label: 'PJH Desk 보이기/숨기기', click: toggleWidget },
+    { label: 'PJH Desk 앞으로 꺼내기  (Ctrl+Alt+D)', click: showWidget },
+    { label: '숨기기', click: hideWidget },
     { label: '항상 위에 두기', type: 'checkbox', checked: !!state.get('pinned'), click: (m) => setPinned(m.checked) },
     { label: '새로고침', click: () => win && win.webContents.send('desk:refresh') },
     { label: '위치 처음으로', click: resetPosition },
@@ -160,9 +184,12 @@ function buildTrayMenu() {
 function createTray() {
   tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'tray.png')));
   tray.setToolTip('PJH Desk');
-  tray.on('click', toggleWidget);
+  tray.on('click', showWidget); // 누르면 항상 꺼낸다(숨기기는 메뉴·위젯 버튼으로)
   buildTrayMenu();
 }
+
+// 확인용 캡처 모드는 따로 된 저장 폴더를 쓴다. 이미 켜 둔 위젯과 부딪히지 않고 실제 설정·할 일도 건드리지 않는다.
+if (process.env.PJH_DESK_CAPTURE) app.setPath('userData', path.join(app.getPath('temp'), 'pjh-desk-capture'));
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -172,11 +199,13 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     createWidget();
     createTray();
+    if (!globalShortcut.register('Control+Alt+D', toggleWidget)) console.warn('Ctrl+Alt+D 단축키를 다른 프로그램이 쓰고 있어요');
     // 해상도·모니터가 바뀌어 위젯이 화면 밖으로 나가면 기본 위치로 되돌린다.
     screen.on('display-removed', () => { if (win && !onSomeDisplay(win.getBounds())) resetPosition(); });
     screen.on('display-metrics-changed', () => { if (win && !onSomeDisplay(win.getBounds())) resetPosition(); });
   });
   app.on('before-quit', () => { quitting = true; media.stop(); });
+  app.on('will-quit', () => globalShortcut.unregisterAll());
   app.on('window-all-closed', () => {}); // 트레이에 남는다
 }
 
@@ -194,6 +223,22 @@ ipcMain.handle('status:fetch', () => fetchStatus());
 ipcMain.handle('lock:summary', () => lockBridge.summary());
 ipcMain.handle('lock:now', () => lockBridge.lockNow());
 
+ipcMain.handle('translate:get', () => ({ ...translateConfig.getPublic(), status: translate.status() }));
+// 키는 렌더러에서 메인으로만 오고, 다시 렌더러로 돌려보내지 않는다.
+ipcMain.handle('translate:save', (_e, { provider, key, region }) => {
+  const saved = translateConfig.save({ provider: String(provider || ''), key: typeof key === 'string' ? key : undefined, region: typeof region === 'string' ? region : undefined });
+  if (win) win.webContents.send('desk:refresh');
+  return saved;
+});
+ipcMain.handle('translate:test', (_e, { provider, key, region }) => {
+  const stored = translateConfig.getSecret();
+  return translate.testProvider({
+    provider: String(provider || stored.provider),
+    key: typeof key === 'string' && key.trim() ? key.trim() : (provider === stored.provider ? stored.key : ''),
+    region: typeof region === 'string' ? region.trim() : stored.region,
+  });
+});
+
 ipcMain.handle('media:get', () => media.get());
 ipcMain.handle('media:command', (_e, cmd) => media.command(String(cmd)));
 
@@ -202,7 +247,7 @@ ipcMain.on('focus:notify', (_e, kind) => {
   if (!Notification.isSupported()) return;
   const text = kind === 'break-over'
     ? { title: '휴식 끝', body: '다시 집중할 시간이에요.' }
-    : { title: '집중 끝', body: '수고했어요. 5분 쉬어요.' };
+    : { title: '집중 끝', body: '수고했어요. 잠깐 쉬어요.' };
   new Notification({ ...text, icon: path.join(__dirname, 'assets', 'icon.png'), silent: false }).show();
 });
 
