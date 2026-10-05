@@ -814,6 +814,8 @@
     el.title = bad ? '눌러서 번역 설정 열기' : '';
   }
 
+  $('desk-quit').addEventListener('click', () => api.desk.quit());
+
   $('tr-state').addEventListener('click', () => { if ($('tr-state').classList.contains('bad')) openSettings('set-translate'); });
 
   // ---------- 위쪽 버튼 ----------

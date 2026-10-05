@@ -3,3 +3,4 @@ dist/
 out/
 *.log
 dist-next/
+dist-linux/

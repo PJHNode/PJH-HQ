@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('api', {
     expand: () => ipcRenderer.send('desk:expand'),
     dragBy: (dx, dy) => ipcRenderer.send('desk:dragBy', { dx, dy }),
     dragEnd: () => ipcRenderer.send('desk:dragEnd'),
+    quit: () => ipcRenderer.send('desk:quit'),
     onMode: (fn) => ipcRenderer.on('desk:mode', (_e, mode) => fn(mode)),
     onPinned: (fn) => ipcRenderer.on('desk:pinned', (_e, pinned) => fn(pinned)),
     onRefresh: (fn) => ipcRenderer.on('desk:refresh', () => fn()),

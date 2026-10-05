@@ -32,7 +32,10 @@
     ],
     "icon": "assets/icon.png",
     "win": {
-      "target": ["portable", "nsis"]
+      "target": ["portable", "nsis"],
+      "extraResources": [
+        { "from": "../PJH-LOCK/bin/PJH-LOCK.exe", "to": "PJH-LOCK.exe" }
+      ]
     },
     "portable": {
       "artifactName": "PJH-Desk.exe"

@@ -13,6 +13,8 @@ const { fetchKev } = require('./modules/kev/fetch');
 const lockBridge = require('./modules/lock/bridge');
 const media = require('./modules/media/now');
 const vdesk = require('./modules/desk/vdesk');
+const integrate = require('./modules/desk/integrate');
+const lockLauncher = require('./modules/lock/launcher');
 const translate = require('./modules/news/translate');
 const translateConfig = require('./modules/news/translate-config');
 
@@ -248,13 +250,26 @@ function buildTrayMenu() {
     items.push({
       label: 'Windows 시작할 때 실행',
       type: 'checkbox',
-      checked: app.getLoginItemSettings().openAtLogin,
-      click: (m) => app.setLoginItemSettings({ openAtLogin: m.checked }),
+      checked: integrate.getAutostart(state),
+      click: (m) => { integrate.setAutostart(state, m.checked); buildTrayMenu(); },
+    });
+    items.push({
+      label: 'PJH-LOCK 같이 실행',
+      type: 'checkbox',
+      checked: state.get('withLock') !== false,
+      click: (m) => { state.set('withLock', m.checked); if (m.checked) startLock(); buildTrayMenu(); },
     });
     items.push({ type: 'separator' });
   }
   items.push({ label: '종료', click: () => { quitting = true; app.quit(); } });
   tray.setContextMenu(Menu.buildFromTemplate(items));
+}
+
+// PJH Desk에 들어 있는 PJH-LOCK을 함께 켠다(이미 켜져 있으면 그대로 둔다).
+async function startLock() {
+  const r = await lockLauncher.ensureRunning();
+  if (r.status === 'failed' || r.status === 'missing') console.warn('PJH-LOCK 실행 실패:', r.status, r.message || '');
+  return r;
 }
 
 function createTray() {
@@ -276,6 +291,8 @@ if (!app.requestSingleInstanceLock()) {
     mini = !!state.get('mini');
     createWidget();
     createTray();
+    integrate.setup(state); // 시작 메뉴 바로 가기, Windows 시작할 때 실행
+    if (isWindows && state.get('withLock') !== false && !process.env.PJH_DESK_CAPTURE) startLock();
     if (!globalShortcut.register('Control+Alt+D', toggleWidget)) console.warn('Ctrl+Alt+D 단축키를 다른 프로그램이 쓰고 있어요');
     // 해상도·모니터가 바뀌어 위젯이 화면 밖으로 나가면 기본 위치로 되돌린다.
     screen.on('display-removed', () => { if (win && !onSomeDisplay(win.getBounds())) resetPosition(); });
@@ -340,6 +357,7 @@ ipcMain.handle('todo:remove', (_e, id) => todo.remove(String(id)));
 ipcMain.handle('desk:getPinned', () => !!state.get('pinned'));
 ipcMain.handle('desk:togglePin', () => { setPinned(!state.get('pinned')); return !!state.get('pinned'); });
 ipcMain.on('desk:hide', () => win && win.hide());
+ipcMain.on('desk:quit', () => { quitting = true; app.quit(); });
 ipcMain.on('desk:mini', () => setMini(true));
 ipcMain.on('desk:expand', () => setMini(false));
 // 작은 타일은 클릭도 받아야 해서 창 끌기 영역 대신 직접 옮긴다.

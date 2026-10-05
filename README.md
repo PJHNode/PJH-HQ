@@ -1,5 +1,12 @@
 # PJH Desk
 
+**`PJH-Desk.exe` 파일 하나만 있으면 돼요.** PJH-LOCK도 안에 들어 있어서, 켜면 PJH-LOCK이 꺼져 있을 때 함께 켜요
+(PJH-LOCK은 `%LOCALAPPDATA%\PJH-Desk\PJH-LOCK\`에 복사돼 실행되고, PJH Desk를 꺼도 계속 지켜요).
+처음 실행하면 시작 메뉴에 "PJH Desk"가 생기고 Windows 시작할 때 자동으로 켜져요(트레이 메뉴에서 끌 수 있어요).
+
+페도라는 `dist-linux/pjh-desk-fedora.run` 하나로 설치해요: `bash pjh-desk-fedora.run`
+(앱 설치 + 앱 목록 등록 + 로그인 시 자동 실행 + PJH-LOCK GNOME 잠금 화면까지. 제거는 `--uninstall`).
+
 바탕화면 오른쪽에 떠 있는 위젯이에요. PJH HQ(예전 PJH News)를 위젯으로 바꾼 버전이에요.
 
 - **시계:** 지금 시각과 날짜
@@ -30,7 +37,8 @@
 ```bash
 npm install
 npm start                          # 개발 실행
-npm run dist                       # dist/PJH-Desk.exe (설치 없이 실행되는 exe 하나)
+npm run dist                       # dist/PJH-Desk.exe (설치 없이 실행되는 exe 하나, PJH-LOCK 포함)
+.\fedora\build-fedora.ps1          # dist-linux/pjh-desk-fedora.run (페도라 설치 파일 하나)
 npx electron-builder --win nsis       # dist/PJH-Desk-Setup.exe (설치 파일)
 ```
 
@@ -68,7 +76,9 @@ VS Code 안의 터미널에서 실행할 때 `ELECTRON_RUN_AS_NODE=1`이 설정�
 | `modules/sys/` | 내 PC 상태(CPU·메모리·디스크·네트워크 속도) |
 | `modules/net/` | 응답 속도, IP, 와이파이/유선 |
 | `modules/status/` | 서비스 상태 |
-| `modules/lock/` | PJH-LOCK 연결(지금 잠그기, 오늘 기록 요약) |
+| `modules/lock/` | PJH-LOCK 연결(함께 실행 `launcher.js`, 지금 잠그기, 오늘 기록 요약) |
+| `modules/desk/integrate.js` | 시작 메뉴 바로 가기, Windows 시작할 때 실행 |
+| `fedora/` | 페도라 설치 파일 틀과 빌드 스크립트 |
 | `modules/desk/` | 가상 데스크톱 따라가기(`vdesk.ps1` 도우미) |
 | `modules/media/` | 지금 재생 중(`smtc.ps1` 도우미, playerctl) |
 | `modules/weather/` | 날씨, 위치 |
